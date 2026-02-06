@@ -29,6 +29,7 @@ const initialValues = {
   role: 'WEBSITE_RESEARCHER',
   country: '',
   category: '',
+  unitPayment: '',
 };
 
 export default function UsersPage() {
@@ -42,8 +43,16 @@ export default function UsersPage() {
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [profileImageFile, setProfileImageFile] = useState(null);
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editUser, setEditUser] = useState(null);
+  const [editValues, setEditValues] = useState({});
+  const [editProfileImageFile, setEditProfileImageFile] = useState(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   const isCategoryAdmin = currentUser?.role === 'CATEGORY_ADMIN';
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
   const fetchUsers = () => {
     api.get('/api/users').then(({ data }) => setList(data)).catch(() => setError('Failed to load users'));
@@ -75,9 +84,10 @@ export default function UsersPage() {
   const openDialog = () => {
     setErrors({});
     setTouched({});
+    setProfileImageFile(null);
     const adminCategory = currentUser?.category?._id ?? currentUser?.category;
     const defaultCategory = isCategoryAdmin ? adminCategory : (values.category || categories[0]?._id);
-    setValues({ ...initialValues, role: 'WEBSITE_RESEARCHER', category: defaultCategory || '' });
+    setValues({ ...initialValues, role: 'WEBSITE_RESEARCHER', category: defaultCategory || '', unitPayment: '' });
     setDialogOpen(true);
   };
 
@@ -85,6 +95,28 @@ export default function UsersPage() {
     setDialogOpen(false);
     setErrors({});
     setValues(initialValues);
+    setProfileImageFile(null);
+  };
+
+  const openEditDialog = (u) => {
+    setEditUser(u);
+    setEditValues({
+      name: u.name || '',
+      email: u.email || '',
+      country: u.country || '',
+      role: u.role || '',
+      category: u.category?._id || u.category || '',
+      isActive: u.isActive !== false,
+      unitPayment: u.unitPayment ?? '',
+    });
+    setEditProfileImageFile(null);
+    setEditDialogOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditUser(null);
+    setEditProfileImageFile(null);
   };
 
   const handleChange = (field, value) => {
@@ -107,13 +139,53 @@ export default function UsersPage() {
     setTouched({ name: true, email: true, password: true, role: true, category: true });
     if (Object.keys(nextErrors).length > 0) return;
     setSubmitting(true);
-    api.post('/api/users', values)
+    const fd = new FormData();
+    fd.append('name', values.name.trim());
+    fd.append('email', values.email.trim());
+    fd.append('password', values.password);
+    fd.append('role', values.role);
+    fd.append('country', values.country || '');
+    fd.append('category', values.category);
+    if (values.unitPayment !== '' && values.unitPayment != null) fd.append('unitPayment', values.unitPayment);
+    if (profileImageFile) fd.append('profileImage', profileImageFile);
+    api.post('/api/users', fd)
       .then(() => {
         closeDialog();
         fetchUsers();
       })
       .catch((err) => setError(err.response?.data?.message || 'Create failed'))
       .finally(() => setSubmitting(false));
+  };
+
+  const handleEditSubmit = (e) => {
+    e.preventDefault();
+    if (!editUser) return;
+    setError('');
+    setEditSubmitting(true);
+    const fd = new FormData();
+    fd.append('name', editValues.name.trim());
+    fd.append('email', editValues.email.trim());
+    fd.append('country', editValues.country || '');
+    fd.append('role', editValues.role);
+    fd.append('category', editValues.category || '');
+    fd.append('isActive', editValues.isActive);
+    if (isSuperAdmin && editValues.unitPayment !== '' && editValues.unitPayment != null) {
+      fd.append('unitPayment', editValues.unitPayment);
+    }
+    if (editProfileImageFile) fd.append('profileImage', editProfileImageFile);
+    api.put(`/api/users/${editUser._id}`, fd)
+      .then(() => {
+        closeEditDialog();
+        fetchUsers();
+      })
+      .catch((err) => setError(err.response?.data?.message || 'Update failed'))
+      .finally(() => setEditSubmitting(false));
+  };
+
+  const canEditUser = (u) => {
+    if (isSuperAdmin) return true;
+    if (isCategoryAdmin) return String(u.category?._id || u.category) === String(currentUser?.category?._id ?? currentUser?.category);
+    return false;
   };
 
   const handleToggle = (id) => {
@@ -153,11 +225,13 @@ export default function UsersPage() {
             <table className="data-table">
               <thead>
                 <tr>
+                  <th style={{ width: '44px' }}>Photo</th>
                   <th>Name</th>
                   <th>Email</th>
                   <th>Role</th>
                   <th>Country</th>
                   <th>Category</th>
+                  <th>Unit Pay</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -165,13 +239,24 @@ export default function UsersPage() {
               <tbody>
                 {list.map((u) => (
                   <tr key={u._id}>
+                    <td>
+                      {u.profileImage ? (
+                        <img src={u.profileImage} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>{u.name?.charAt(0)?.toUpperCase() || '?'}</span>
+                      )}
+                    </td>
                     <td>{u.name}</td>
                     <td>{u.email}</td>
                     <td>{ROLE_LABELS[u.role] || u.role}</td>
                     <td>{u.country || '—'}</td>
                     <td>{u.category?.name || '—'}</td>
+                    <td>{u.unitPayment != null ? u.unitPayment : '—'}</td>
                     <td><span className={`badge ${u.isActive !== false ? 'badge-approved' : 'badge-disapproved'}`}>{u.isActive !== false ? 'Active' : 'Inactive'}</span></td>
-                    <td>
+                    <td style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                      {canEditUser(u) && (
+                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => openEditDialog(u)}>Edit</button>
+                      )}
                       <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleToggle(u._id)}>
                         {u.isActive !== false ? 'Deactivate' : 'Activate'}
                       </button>
@@ -247,6 +332,15 @@ export default function UsersPage() {
               ))}
             </select>
           </motion.div>
+          <motion.div className="form-field" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.21 }}>
+            <label htmlFor="user-unitPayment">Unit Payment</label>
+            <input id="user-unitPayment" type="number" min="0" step="0.01" placeholder="0" {...fieldProps('unitPayment')} disabled={isCategoryAdmin} />
+            {isCategoryAdmin && <span className="form-hint" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Super Admin only</span>}
+          </motion.div>
+          <motion.div className="form-field" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+            <label htmlFor="user-profileImage">Profile Image (optional)</label>
+            <input id="user-profileImage" type="file" accept="image/*" onChange={(e) => setProfileImageFile(e.target.files?.[0] || null)} />
+          </motion.div>
           <motion.div
             className="dialog-form-actions"
             initial={{ opacity: 0 }}
@@ -268,6 +362,82 @@ export default function UsersPage() {
             </button>
           </motion.div>
         </form>
+      </Dialog>
+
+      <Dialog open={editDialogOpen} onClose={closeEditDialog} title="Edit User" subtitle={editUser ? `Update ${editUser.name}` : ''}>
+        {editUser && (
+          <form onSubmit={handleEditSubmit} className="dialog-form">
+            <div className="form-field">
+              <label>Profile Image</label>
+              {editUser.profileImage && !editProfileImageFile && (
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <img src={editUser.profileImage} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover' }} />
+                </div>
+              )}
+              <input type="file" accept="image/*" onChange={(e) => setEditProfileImageFile(e.target.files?.[0] || null)} />
+            </div>
+            <div className="form-field">
+              <label>Name *</label>
+              <input className="form-input" value={editValues.name} onChange={(e) => setEditValues((v) => ({ ...v, name: e.target.value }))} required />
+            </div>
+            <div className="form-field">
+              <label>Email *</label>
+              <input className="form-input" type="email" value={editValues.email} onChange={(e) => setEditValues((v) => ({ ...v, email: e.target.value }))} required disabled={!isSuperAdmin} />
+              {!isSuperAdmin && <span className="form-hint" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Super Admin only</span>}
+            </div>
+            <div className="form-field">
+              <label>Country</label>
+              <select className="form-input" value={editValues.country} onChange={(e) => setEditValues((v) => ({ ...v, country: e.target.value }))}>
+                <option value="">Select country</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            {isSuperAdmin && (
+              <>
+                <div className="form-field">
+                  <label>Role</label>
+                  <select className="form-input" value={editValues.role} onChange={(e) => setEditValues((v) => ({ ...v, role: e.target.value }))}>
+                    {Object.entries(ROLE_LABELS).filter(([k]) => k !== 'SUPER_ADMIN').map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Category</label>
+                  <select className="form-input" value={editValues.category} onChange={(e) => setEditValues((v) => ({ ...v, category: e.target.value }))}>
+                    <option value="">Select category</option>
+                    {categories.map((c) => (
+                      <option key={c._id} value={c._id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Unit Payment</label>
+                  <input className="form-input" type="number" min="0" step="0.01" value={editValues.unitPayment} onChange={(e) => setEditValues((v) => ({ ...v, unitPayment: e.target.value }))} />
+                </div>
+              </>
+            )}
+            {!isSuperAdmin && (
+              <div className="form-field">
+                <label>Unit Payment</label>
+                <input className="form-input" type="number" value={editValues.unitPayment} disabled />
+              </div>
+            )}
+            <div className="form-field">
+              <label>
+                <input type="checkbox" checked={editValues.isActive} onChange={(e) => setEditValues((v) => ({ ...v, isActive: e.target.checked }))} /> Active
+              </label>
+            </div>
+            <div className="dialog-form-actions">
+              <button type="button" className="btn btn-secondary" onClick={closeEditDialog}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={editSubmitting}>
+                {editSubmitting ? <><span className="btn-spinner" style={{ marginRight: '0.5rem' }} />Updating...</> : 'Update'}
+              </button>
+            </div>
+          </form>
+        )}
       </Dialog>
     </>
   );
