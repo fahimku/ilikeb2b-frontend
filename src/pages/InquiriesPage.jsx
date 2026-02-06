@@ -37,13 +37,28 @@ export default function InquiriesPage() {
   const [resubmitScreenshot, setResubmitScreenshot] = useState(null);
   const [resubmitLoading, setResubmitLoading] = useState(false);
 
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [searchSubmitted, setSearchSubmitted] = useState(0);
+  const [categories, setCategories] = useState([]);
+  const [editInquiry, setEditInquiry] = useState(null);
+  const [editInquiryStatus, setEditInquiryStatus] = useState('');
+  const [editInquiryLoading, setEditInquiryLoading] = useState(false);
+
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAuditor = ['WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR'].includes(user?.role);
   const canCreate = isInquirer(user?.role);
+
+  useEffect(() => {
+    if (isSuperAdmin) api.get('/api/categories').then(({ data }) => setCategories(data || [])).catch(() => {});
+  }, [isSuperAdmin]);
 
   const fetchInquiries = useCallback((signal) => {
     setLoading(true);
     const params = { page, limit };
     if (status) params.status = status;
+    if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
+    if (isSuperAdmin && search.trim()) params.search = search.trim();
     api.get('/api/inquiry', { params, signal })
       .then(({ data }) => setRes({ data: data.data || [], total: data.total ?? 0 }))
       .catch((err) => {
@@ -51,7 +66,7 @@ export default function InquiriesPage() {
         setError(err.response?.data?.message || 'Failed to load');
       })
       .finally(() => setLoading(false));
-  }, [page, limit, status]);
+  }, [page, limit, status, categoryFilter, searchSubmitted, isSuperAdmin]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -166,6 +181,20 @@ export default function InquiriesPage() {
 
       <motion.div className="content-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', alignItems: 'center' }}>
+          {isSuperAdmin && (
+            <>
+              <select className="select-input" value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}>
+                <option value="">All categories</option>
+                {categories.map((c) => (
+                  <option key={c._id} value={c._id}>{c.name}</option>
+                ))}
+              </select>
+              <form onSubmit={(e) => { e.preventDefault(); setPage(1); setSearchSubmitted((s) => s + 1); }} style={{ display: 'flex', gap: '0.5rem' }}>
+                <input className="text-input" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: '180px' }} />
+                <button type="submit" className="btn btn-secondary">Search</button>
+              </form>
+            </>
+          )}
           <select className="select-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value || 'all'} value={o.value}>{o.label}</option>
@@ -258,13 +287,14 @@ export default function InquiriesPage() {
                           <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }} title={r.disapprovalReason}>{r.disapprovalReason.slice(0, 30)}{r.disapprovalReason.length > 30 ? '…' : ''}</span>
                         )}
                       </td>
-                      {canCreate && (
-                        <td>
-                          {r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && (
-                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => openResubmit(r)}>Resubmit</button>
-                          )}
-                        </td>
-                      )}
+                      <td>
+                        {canCreate && r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && (
+                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => openResubmit(r)}>Resubmit</button>
+                        )}
+                        {isSuperAdmin && (
+                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setEditInquiry(r); setEditInquiryStatus(r.status); }} style={{ marginLeft: '0.25rem' }}>Edit</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -325,6 +355,22 @@ export default function InquiriesPage() {
       </Dialog>
 
       {/* Resubmit Dialog */}
+      <Dialog open={!!editInquiry} onClose={() => setEditInquiry(null)} title="Edit Inquiry" subtitle="Super Admin can update inquiry status.">
+        {editInquiry && (
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            setEditInquiryLoading(true);
+            api.put(`/api/inquiry/${editInquiry._id}`, { status: editInquiryStatus })
+              .then(() => { setEditInquiry(null); fetchInquiries(); })
+              .catch((err) => setError(err.response?.data?.message || 'Update failed'))
+              .finally(() => setEditInquiryLoading(false));
+          }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div><label className="form-label">Status</label><select className="select-input" value={editInquiryStatus} onChange={(e) => setEditInquiryStatus(e.target.value)} style={{ width: '100%' }}><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="DISAPPROVED">Disapproved</option></select></div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}><button type="button" className="btn btn-secondary" onClick={() => setEditInquiry(null)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={editInquiryLoading}>{editInquiryLoading ? 'Updating…' : 'Update'}</button></div>
+          </form>
+        )}
+      </Dialog>
+
       <Dialog open={!!resubmitItem} onClose={() => setResubmitItem(null)} title="Resubmit Inquiry" subtitle="Upload a new screenshot and resubmit for re-review. You can only resubmit once.">
         {resubmitItem && (
           <form onSubmit={handleResubmitSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

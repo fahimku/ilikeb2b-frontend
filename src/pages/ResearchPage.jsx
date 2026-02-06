@@ -51,8 +51,21 @@ export default function ResearchPage() {
   const [resubmitScreenshotError, setResubmitScreenshotError] = useState('');
   const [resubmitLoading, setResubmitLoading] = useState(false);
 
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [editResearch, setEditResearch] = useState(null);
+  const [editResearchData, setEditResearchData] = useState({});
+  const [editResearchLoading, setEditResearchLoading] = useState(false);
+
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAuditor = ['WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR'].includes(user?.role);
   const canCreate = isResearcher(user?.role);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      api.get('/api/categories').then(({ data }) => setCategories(data || [])).catch(() => {});
+    }
+  }, [isSuperAdmin]);
 
   const fetchResearch = useCallback((signal) => {
     setLoading(true);
@@ -60,6 +73,7 @@ export default function ResearchPage() {
     if (status) params.status = status;
     if (country.trim()) params.country = country.trim();
     if (search.trim()) params.search = search.trim();
+    if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
     api.get('/api/research', { params, signal })
       .then(({ data }) => setRes({ data: data.data || [], total: data.total ?? 0 }))
       .catch((err) => {
@@ -67,7 +81,7 @@ export default function ResearchPage() {
         setError(err.response?.data?.message || 'Failed to load');
       })
       .finally(() => setLoading(false));
-  }, [page, limit, status, country, searchSubmitted]);
+  }, [page, limit, status, country, categoryFilter, searchSubmitted, isSuperAdmin]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -246,6 +260,14 @@ export default function ResearchPage() {
             />
             <button type="submit" className="btn btn-secondary">Search</button>
           </form>
+          {isSuperAdmin && (
+            <select className="select-input" value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }} style={{ width: '160px' }}>
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c._id} value={c._id}>{c.name}</option>
+              ))}
+            </select>
+          )}
           <input
             className="text-input"
             placeholder="Country"
@@ -312,7 +334,7 @@ export default function ResearchPage() {
                     <th>Researcher</th>
                     <th>Screenshot</th>
                     <th>Status</th>
-                    {canCreate && <th>Actions</th>}
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -359,13 +381,14 @@ export default function ResearchPage() {
                           <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }} title={r.disapprovalReason}>{r.disapprovalReason.slice(0, 30)}{r.disapprovalReason.length > 30 ? '…' : ''}</span>
                         )}
                       </td>
-                      {canCreate && (
-                        <td>
-                          {r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && (
-                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => openResubmit(r)}>Resubmit</button>
-                          )}
-                        </td>
-                      )}
+                      <td>
+                        {canCreate && r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && (
+                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => openResubmit(r)}>Resubmit</button>
+                        )}
+                        {isSuperAdmin && (
+                          <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setEditResearch(r); setEditResearchData({ companyName: r.companyName || '', companyLink: r.companyLink || '', personName: r.personName || '', linkedinLink: r.linkedinLink || '', country: r.country || '', status: r.status }); }} style={{ marginLeft: '0.25rem' }}>Edit</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -443,6 +466,42 @@ export default function ResearchPage() {
             <button type="submit" className="btn btn-primary" disabled={createLoading}>{createLoading ? 'Submitting…' : 'Submit'}</button>
           </div>
         </form>
+      </Dialog>
+
+      {/* Edit Research Dialog (Super Admin) */}
+      <Dialog open={!!editResearch} onClose={() => setEditResearch(null)} title="Edit Research" subtitle="Super Admin can update research records.">
+        {editResearch && (
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            setEditResearchLoading(true);
+            const fd = new FormData();
+            fd.append('companyName', editResearchData.companyName || '');
+            fd.append('companyLink', editResearchData.companyLink || '');
+            fd.append('personName', editResearchData.personName || '');
+            fd.append('linkedinLink', editResearchData.linkedinLink || '');
+            fd.append('country', editResearchData.country);
+            fd.append('status', editResearchData.status);
+            api.put(`/api/research/${editResearch._id}`, fd)
+              .then(() => { setEditResearch(null); fetchResearch(); })
+              .catch((err) => setError(err.response?.data?.message || 'Update failed'))
+              .finally(() => setEditResearchLoading(false));
+          }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {(editResearch.type === 'WEBSITE' || editResearch.companyName) ? (
+              <>
+                <div><label className="form-label">Company Name</label><input className="text-input" value={editResearchData.companyName} onChange={(e) => setEditResearchData((d) => ({ ...d, companyName: e.target.value }))} style={{ width: '100%' }} /></div>
+                <div><label className="form-label">Company Link</label><input className="text-input" value={editResearchData.companyLink} onChange={(e) => setEditResearchData((d) => ({ ...d, companyLink: e.target.value }))} style={{ width: '100%' }} /></div>
+              </>
+            ) : (
+              <>
+                <div><label className="form-label">Person Name</label><input className="text-input" value={editResearchData.personName} onChange={(e) => setEditResearchData((d) => ({ ...d, personName: e.target.value }))} style={{ width: '100%' }} /></div>
+                <div><label className="form-label">LinkedIn Link</label><input className="text-input" value={editResearchData.linkedinLink} onChange={(e) => setEditResearchData((d) => ({ ...d, linkedinLink: e.target.value }))} style={{ width: '100%' }} /></div>
+              </>
+            )}
+            <div><label className="form-label">Country</label><select className="select-input" value={editResearchData.country} onChange={(e) => setEditResearchData((d) => ({ ...d, country: e.target.value }))} style={{ width: '100%' }}><option value="">Select</option>{COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+            <div><label className="form-label">Status</label><select className="select-input" value={editResearchData.status} onChange={(e) => setEditResearchData((d) => ({ ...d, status: e.target.value }))} style={{ width: '100%' }}><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="DISAPPROVED">Disapproved</option></select></div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}><button type="button" className="btn btn-secondary" onClick={() => setEditResearch(null)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={editResearchLoading}>{editResearchLoading ? 'Updating…' : 'Update'}</button></div>
+          </form>
+        )}
       </Dialog>
 
       {/* Resubmit Dialog */}
