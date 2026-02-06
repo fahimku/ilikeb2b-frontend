@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 import { ROLE_LABELS } from '../config/sidebarNav';
 import Dialog from '../components/Dialog';
+import { COUNTRIES } from '../config/countries';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -30,6 +32,7 @@ const initialValues = {
 };
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
   const [list, setList] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +42,8 @@ export default function UsersPage() {
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+
+  const isCategoryAdmin = currentUser?.role === 'CATEGORY_ADMIN';
 
   const fetchUsers = () => {
     api.get('/api/users').then(({ data }) => setList(data)).catch(() => setError('Failed to load users'));
@@ -56,7 +61,6 @@ export default function UsersPage() {
         if (signal.aborted) return;
         setList(u.data);
         setCategories(c.data);
-        if (c.data?.length) setValues((v) => (v.category ? v : { ...v, category: c.data[0]._id }));
       })
       .catch((err) => {
         if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
@@ -71,7 +75,9 @@ export default function UsersPage() {
   const openDialog = () => {
     setErrors({});
     setTouched({});
-    setValues((v) => (v.category || categories[0]?._id ? { ...initialValues, role: 'WEBSITE_RESEARCHER', category: v.category || categories[0]?._id } : { ...initialValues }));
+    const adminCategory = currentUser?.category?._id ?? currentUser?.category;
+    const defaultCategory = isCategoryAdmin ? adminCategory : (values.category || categories[0]?._id);
+    setValues({ ...initialValues, role: 'WEBSITE_RESEARCHER', category: defaultCategory || '' });
     setDialogOpen(true);
   };
 
@@ -212,12 +218,13 @@ export default function UsersPage() {
               </div>
             ) : (
               <>
-                <select id="user-category" {...fieldProps('category')}>
+                <select id="user-category" {...fieldProps('category')} disabled={isCategoryAdmin}>
                   <option value="">Select category</option>
                   {categories.map((c) => (
                     <option key={c._id} value={c._id}>{c.name}</option>
                   ))}
                 </select>
+                {isCategoryAdmin && <span className="form-hint" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Same as your category</span>}
                 {errors.category && <span className="form-error">{errors.category}</span>}
               </>
             )}
@@ -233,7 +240,12 @@ export default function UsersPage() {
           </motion.div>
           <motion.div className="form-field" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <label htmlFor="user-country">Country</label>
-            <input id="user-country" type="text" placeholder="e.g. USA" {...fieldProps('country')} />
+            <select id="user-country" {...fieldProps('country')}>
+              <option value="">Select country</option>
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </motion.div>
           <motion.div
             className="dialog-form-actions"

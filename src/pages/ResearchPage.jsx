@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Dialog from '../components/Dialog';
+import { COUNTRIES } from '../config/countries';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -12,6 +13,7 @@ const STATUS_OPTIONS = [
 ];
 
 const isResearcher = (role) => ['WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER'].includes(role);
+const MAX_IMAGE_SIZE = 500 * 1024; // 500KB per image
 
 export default function ResearchPage() {
   const { user } = useAuth();
@@ -38,13 +40,15 @@ export default function ResearchPage() {
     linkedinLink: '',
     country: ''
   });
-  const [screenshotFile, setScreenshotFile] = useState(null);
+  const [screenshotFiles, setScreenshotFiles] = useState([]);
+  const [screenshotError, setScreenshotError] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
 
   // Resubmit
   const [resubmitItem, setResubmitItem] = useState(null);
   const [resubmitData, setResubmitData] = useState({});
-  const [resubmitScreenshot, setResubmitScreenshot] = useState(null);
+  const [resubmitScreenshots, setResubmitScreenshots] = useState([]);
+  const [resubmitScreenshotError, setResubmitScreenshotError] = useState('');
   const [resubmitLoading, setResubmitLoading] = useState(false);
 
   const isAuditor = ['WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR'].includes(user?.role);
@@ -123,6 +127,7 @@ export default function ResearchPage() {
     }
     setCreateLoading(true);
     setError('');
+    setScreenshotError('');
     const fd = new FormData();
     fd.append('type', createType);
     fd.append('country', c.trim());
@@ -133,12 +138,13 @@ export default function ResearchPage() {
       fd.append('personName', personName.trim());
       fd.append('linkedinLink', linkedinLink.trim());
     }
-    if (screenshotFile) fd.append('screenshot', screenshotFile);
+    screenshotFiles.forEach((file) => fd.append('screenshots', file));
     api.post('/api/research', fd)
       .then(() => {
         setShowCreate(false);
         setCreateData({ companyName: '', companyLink: '', personName: '', linkedinLink: '', country: '' });
-        setScreenshotFile(null);
+        setScreenshotFiles([]);
+        setScreenshotError('');
         fetchResearch();
       })
       .catch((err) => setError(err.response?.data?.message || 'Submission failed'))
@@ -154,7 +160,32 @@ export default function ResearchPage() {
       linkedinLink: r.linkedinLink || '',
       country: r.country || ''
     });
-    setResubmitScreenshot(null);
+    setResubmitScreenshots([]);
+    setResubmitScreenshotError('');
+  };
+
+  const handleCreateScreenshotsChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    const oversized = files.filter((f) => f.size > MAX_IMAGE_SIZE);
+    if (oversized.length) {
+      setScreenshotError(`Each image must be ≤ 500KB. ${oversized.length} file(s) exceeded the limit.`);
+      setScreenshotFiles(files.filter((f) => f.size <= MAX_IMAGE_SIZE));
+    } else {
+      setScreenshotError('');
+      setScreenshotFiles(files);
+    }
+  };
+
+  const handleResubmitScreenshotsChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    const oversized = files.filter((f) => f.size > MAX_IMAGE_SIZE);
+    if (oversized.length) {
+      setResubmitScreenshotError(`Each image must be ≤ 500KB. ${oversized.length} file(s) exceeded the limit.`);
+      setResubmitScreenshots(files.filter((f) => f.size <= MAX_IMAGE_SIZE));
+    } else {
+      setResubmitScreenshotError('');
+      setResubmitScreenshots(files);
+    }
   };
 
   const handleResubmitSubmit = (e) => {
@@ -171,6 +202,7 @@ export default function ResearchPage() {
     }
     setResubmitLoading(true);
     setError('');
+    setResubmitScreenshotError('');
     const fd = new FormData();
     fd.append('country', resubmitData.country.trim());
     if (isWebsite) {
@@ -180,7 +212,7 @@ export default function ResearchPage() {
       fd.append('personName', resubmitData.personName.trim());
       fd.append('linkedinLink', resubmitData.linkedinLink.trim());
     }
-    if (resubmitScreenshot) fd.append('screenshot', resubmitScreenshot);
+    resubmitScreenshots.forEach((file) => fd.append('screenshots', file));
     api.put(`/api/research/${resubmitItem._id}/resubmit`, fd)
       .then(() => {
         setResubmitItem(null);
@@ -309,9 +341,17 @@ export default function ResearchPage() {
                       <td>{r.country || '—'}</td>
                       <td>{r.researcher?.name || '—'}</td>
                       <td>
-                        {r.screenshot ? (
-                          <a href={r.screenshot} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: '0.875rem' }}>View</a>
-                        ) : '—'}
+                        {(() => {
+                          const urls = r.screenshots?.length ? r.screenshots : (r.screenshot ? [r.screenshot] : []);
+                          if (!urls.length) return '—';
+                          return (
+                            <span style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                              {urls.map((url, i) => (
+                                <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: '0.875rem' }}>View {urls.length > 1 ? i + 1 : ''}</a>
+                              ))}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td>
                         <span className={`badge badge-${r.status === 'APPROVED' ? 'approved' : r.status === 'DISAPPROVED' ? 'disapproved' : 'pending'}`}>{r.status}</span>
@@ -385,11 +425,18 @@ export default function ResearchPage() {
           )}
           <div>
             <label className="form-label">Country *</label>
-            <input className="text-input" value={createData.country} onChange={(e) => setCreateData((d) => ({ ...d, country: e.target.value }))} placeholder="e.g. Germany" required />
+            <select className="select-input" value={createData.country} onChange={(e) => setCreateData((d) => ({ ...d, country: e.target.value }))} style={{ width: '100%' }} required>
+              <option value="">Select country</option>
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
           <div>
-            <label className="form-label">Screenshot (optional for Website, recommended for LinkedIn)</label>
-            <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)} />
+            <label className="form-label">Screenshots (optional for Website, recommended for LinkedIn). Max 500KB per image.</label>
+            <input type="file" accept="image/*" multiple onChange={handleCreateScreenshotsChange} />
+            {screenshotFiles.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{screenshotFiles.length} image(s) selected</span>}
+            {screenshotError && <span className="form-error" style={{ display: 'block', marginTop: '0.25rem' }}>{screenshotError}</span>}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
@@ -427,11 +474,18 @@ export default function ResearchPage() {
             )}
             <div>
               <label className="form-label">Country *</label>
-              <input className="text-input" value={resubmitData.country} onChange={(e) => setResubmitData((d) => ({ ...d, country: e.target.value }))} required />
+              <select className="select-input" value={resubmitData.country} onChange={(e) => setResubmitData((d) => ({ ...d, country: e.target.value }))} style={{ width: '100%' }} required>
+                <option value="">Select country</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
             <div>
-              <label className="form-label">New Screenshot (optional)</label>
-              <input type="file" accept="image/*" onChange={(e) => setResubmitScreenshot(e.target.files?.[0] || null)} />
+              <label className="form-label">New Screenshots (optional). Max 500KB per image.</label>
+              <input type="file" accept="image/*" multiple onChange={handleResubmitScreenshotsChange} />
+              {resubmitScreenshots.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{resubmitScreenshots.length} image(s) selected</span>}
+              {resubmitScreenshotError && <span className="form-error" style={{ display: 'block', marginTop: '0.25rem' }}>{resubmitScreenshotError}</span>}
             </div>
             {resubmitItem.disapprovalReason && (
               <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}><strong>Reason:</strong> {resubmitItem.disapprovalReason}</p>
