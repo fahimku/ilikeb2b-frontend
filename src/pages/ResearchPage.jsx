@@ -58,6 +58,8 @@ export default function ResearchPage() {
   const [editResearchLoading, setEditResearchLoading] = useState(false);
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isCategoryAdmin = user?.role === 'CATEGORY_ADMIN';
+  const canEditResearch = isSuperAdmin || isCategoryAdmin;
   const isAuditor = ['WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR'].includes(user?.role);
   const canCreate = isResearcher(user?.role);
   const isWebsiteResearcher = user?.role === 'WEBSITE_RESEARCHER';
@@ -410,7 +412,7 @@ export default function ResearchPage() {
                         {canCreate && r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && (
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => openResubmit(r)}>Resubmit</button>
                         )}
-                        {isSuperAdmin && (
+                        {canEditResearch && (
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setEditResearch(r); setEditResearchData({ companyName: r.companyName || '', companyLink: r.companyLink || '', personName: r.personName || '', linkedinLink: r.linkedinLink || '', country: r.country || '', status: r.status }); }} style={{ marginLeft: '0.25rem' }}>Edit</button>
                         )}
                       </td>

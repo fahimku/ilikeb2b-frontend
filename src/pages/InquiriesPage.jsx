@@ -49,6 +49,8 @@ export default function InquiriesPage() {
   const [editInquiryLoading, setEditInquiryLoading] = useState(false);
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isCategoryAdmin = user?.role === 'CATEGORY_ADMIN';
+  const canEditInquiry = isSuperAdmin || isCategoryAdmin;
   const isAuditor = ['WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR'].includes(user?.role);
   const canCreate = isInquirer(user?.role);
 
@@ -349,7 +351,7 @@ export default function InquiriesPage() {
                         {canCreate && r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && (
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => openResubmit(r)}>Resubmit</button>
                         )}
-                        {isSuperAdmin && (
+                        {canEditInquiry && (
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setEditInquiry(r); setEditInquiryStatus(r.status); }} style={{ marginLeft: '0.25rem' }}>Edit</button>
                         )}
                       </td>

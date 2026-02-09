@@ -187,33 +187,145 @@ export default function DashboardHome() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <StatCard
-              title="Total users"
-              value={stats.users ?? 0}
-              delay={0.05}
-              icon="👥"
-            />
-            <StatCard
-              title="Research"
-              value={researchByStatus.APPROVED ?? 0}
-              sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
-              delay={0.1}
-              icon="🔍"
-            />
-            <StatCard
-              title="Inquiries"
-              value={inquiryByStatus.APPROVED ?? 0}
-              sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
-              delay={0.15}
-              icon="✉️"
-            />
-            <StatCard
-              title="Payments"
-              value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`}
-              sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`}
-              delay={0.2}
-              icon="💰"
-            />
+            {/* Super Admin: global stats */}
+            {user?.role === 'SUPER_ADMIN' && (
+              <>
+                <StatCard
+                  title="Total users"
+                  value={stats.users ?? 0}
+                  delay={0.05}
+                  icon="👥"
+                />
+                <StatCard
+                  title="Research"
+                  value={researchByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.1}
+                  icon="🔍"
+                />
+                <StatCard
+                  title="Inquiries"
+                  value={inquiryByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.15}
+                  icon="✉️"
+                />
+                <StatCard
+                  title="Payments"
+                  value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`}
+                  sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`}
+                  delay={0.2}
+                  icon="💰"
+                />
+              </>
+            )}
+            {/* Category Admin: category-scoped stats */}
+            {user?.role === 'CATEGORY_ADMIN' && (
+              <>
+                <StatCard
+                  title="Category users"
+                  value={stats.users ?? 0}
+                  delay={0.05}
+                  icon="👥"
+                />
+                <StatCard
+                  title="Category Research"
+                  value={researchByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.1}
+                  icon="🔍"
+                />
+                <StatCard
+                  title="Category Inquiries"
+                  value={inquiryByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.15}
+                  icon="✉️"
+                />
+                <StatCard
+                  title="Category Payments"
+                  value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`}
+                  sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`}
+                  delay={0.2}
+                  icon="💰"
+                />
+              </>
+            )}
+            {/* Researcher: My Research + My Payments */}
+            {['WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER'].includes(user?.role) && (
+              <>
+                <StatCard
+                  title="My Research"
+                  value={researchByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.05}
+                  icon="🔍"
+                />
+                <StatCard
+                  title="My Payments"
+                  value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`}
+                  sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`}
+                  delay={0.1}
+                  icon="💰"
+                />
+              </>
+            )}
+            {/* Inquirer: My Inquiries + My Payments */}
+            {['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(user?.role) && (
+              <>
+                <StatCard
+                  title="My Inquiries"
+                  value={inquiryByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.05}
+                  icon="✉️"
+                />
+                <StatCard
+                  title="My Payments"
+                  value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`}
+                  sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`}
+                  delay={0.1}
+                  icon="💰"
+                />
+              </>
+            )}
+            {/* Auditors: Pending to Audit + My Payments */}
+            {['WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR'].includes(user?.role) && (
+              <>
+                <StatCard
+                  title="Pending Research to Audit"
+                  value={researchByStatus.PENDING ?? 0}
+                  sub={`Approved: ${researchByStatus.APPROVED ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.05}
+                  icon="🔍"
+                />
+                <StatCard
+                  title="My Payments"
+                  value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`}
+                  sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`}
+                  delay={0.1}
+                  icon="💰"
+                />
+              </>
+            )}
+            {['WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR'].includes(user?.role) && (
+              <>
+                <StatCard
+                  title="Pending Inquiries to Audit"
+                  value={inquiryByStatus.PENDING ?? 0}
+                  sub={`Approved: ${inquiryByStatus.APPROVED ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.05}
+                  icon="✉️"
+                />
+                <StatCard
+                  title="My Payments"
+                  value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`}
+                  sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`}
+                  delay={0.1}
+                  icon="💰"
+                />
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
