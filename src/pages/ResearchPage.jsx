@@ -60,6 +60,8 @@ export default function ResearchPage() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAuditor = ['WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR'].includes(user?.role);
   const canCreate = isResearcher(user?.role);
+  const isWebsiteResearcher = user?.role === 'WEBSITE_RESEARCHER';
+  const isLinkedInResearcher = user?.role === 'LINKEDIN_RESEARCHER';
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -164,6 +166,13 @@ export default function ResearchPage() {
       .catch((err) => setError(err.response?.data?.message || 'Submission failed'))
       .finally(() => setCreateLoading(false));
   };
+
+  useEffect(() => {
+    if (canCreate && showCreate) {
+      if (isWebsiteResearcher) setCreateType('WEBSITE');
+      if (isLinkedInResearcher) setCreateType('LINKEDIN');
+    }
+  }, [canCreate, showCreate, isWebsiteResearcher, isLinkedInResearcher]);
 
   const openResubmit = (r) => {
     setResubmitItem(r);
@@ -283,6 +292,18 @@ export default function ResearchPage() {
           {canCreate && (
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowCreate(true)}>+ New</button>
           )}
+          {(isAuditor || canCreate) && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                const links = res.data.map((r) => r.companyLink || r.linkedinLink).filter(Boolean);
+                links.forEach((url) => window.open(url, '_blank'));
+              }}
+            >
+              Open links in bulk
+            </button>
+          )}
           {isAuditor && (
             <>
               <button type="button" className="btn btn-secondary btn-sm" onClick={selectAll}>
@@ -327,11 +348,13 @@ export default function ResearchPage() {
                 <thead>
                   <tr>
                     {isAuditor && <th style={{ width: '40px' }}><input type="checkbox" checked={pendingIds.length > 0 && selected.size === pendingIds.length} onChange={selectAll} /></th>}
+                    <th>Ref No</th>
                     <th>Type</th>
                     <th>Company / Person</th>
                     <th>Link</th>
                     <th>Country</th>
                     <th>Researcher</th>
+                    <th>Category</th>
                     <th>Screenshot</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -351,6 +374,7 @@ export default function ResearchPage() {
                           )}
                         </td>
                       )}
+                      <td><strong>{r.referenceNo || '—'}</strong></td>
                       <td>{r.type === 'WEBSITE' || r.companyName ? 'Website' : 'LinkedIn'}</td>
                       <td>{r.companyName || r.personName || '—'}</td>
                       <td>
@@ -362,6 +386,7 @@ export default function ResearchPage() {
                       </td>
                       <td>{r.country || '—'}</td>
                       <td>{r.researcher?.name || '—'}</td>
+                      <td>{r.category?.name || '—'}</td>
                       <td>
                         {(() => {
                           const urls = r.screenshots?.length ? r.screenshots : (r.screenshot ? [r.screenshot] : []);
@@ -414,15 +439,17 @@ export default function ResearchPage() {
       </motion.div>
 
       {/* Create Research Dialog */}
-      <Dialog open={showCreate} onClose={() => setShowCreate(false)} title="Add Research" subtitle="Submit a new research record.">
+      <Dialog open={showCreate} onClose={() => setShowCreate(false)} title="Add Research" subtitle={isWebsiteResearcher ? "Submit company website data." : isLinkedInResearcher ? "Submit LinkedIn profile data." : "Submit a new research record."}>
         <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className="form-label">Type</label>
-            <select className="select-input" value={createType} onChange={(e) => setCreateType(e.target.value)} style={{ width: '100%' }}>
-              <option value="WEBSITE">Website (Company)</option>
-              <option value="LINKEDIN">LinkedIn (Person)</option>
-            </select>
-          </div>
+          {!isWebsiteResearcher && !isLinkedInResearcher && (
+            <div>
+              <label className="form-label">Type</label>
+              <select className="select-input" value={createType} onChange={(e) => setCreateType(e.target.value)} style={{ width: '100%' }}>
+                <option value="WEBSITE">Website (Company)</option>
+                <option value="LINKEDIN">LinkedIn (Person)</option>
+              </select>
+            </div>
+          )}
           {createType === 'WEBSITE' ? (
             <>
               <div>

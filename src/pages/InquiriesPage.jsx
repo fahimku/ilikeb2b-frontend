@@ -29,12 +29,15 @@ export default function InquiriesPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [approvedResearch, setApprovedResearch] = useState([]);
   const [createData, setCreateData] = useState({ researchId: '', type: 'WEBSITE' });
-  const [screenshotFile, setScreenshotFile] = useState(null);
+  const [screenshotFiles, setScreenshotFiles] = useState([]);
   const [createLoading, setCreateLoading] = useState(false);
+
+  const isWebsiteInquirer = user?.role === 'WEBSITE_INQUIRER';
+  const isLinkedInInquirer = user?.role === 'LINKEDIN_INQUIRER';
+  const MAX_IMAGE_SIZE = 500 * 1024;
 
   // Resubmit
   const [resubmitItem, setResubmitItem] = useState(null);
-  const [resubmitScreenshot, setResubmitScreenshot] = useState(null);
   const [resubmitLoading, setResubmitLoading] = useState(false);
 
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -82,6 +85,13 @@ export default function InquiriesPage() {
     }
   }, [canCreate, showCreate]);
 
+  useEffect(() => {
+    if (canCreate && showCreate) {
+      if (isWebsiteInquirer) setCreateData((d) => ({ ...d, type: 'WEBSITE' }));
+      if (isLinkedInInquirer) setCreateData((d) => ({ ...d, type: 'LINKEDIN' }));
+    }
+  }, [canCreate, showCreate, isWebsiteInquirer, isLinkedInInquirer]);
+
   const toggleSelect = (id) => {
     setSelected((s) => {
       const next = new Set(s);
@@ -108,14 +118,19 @@ export default function InquiriesPage() {
       .catch((err) => setError(err.response?.data?.message || 'Audit failed'));
   };
 
+  const handleCreateScreenshotsChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    setScreenshotFiles(files.filter((f) => f.size <= MAX_IMAGE_SIZE));
+  };
+
   const handleCreateSubmit = (e) => {
     e.preventDefault();
     if (!createData.researchId?.trim()) {
       setError('Please select a research record');
       return;
     }
-    if (!screenshotFile) {
-      setError('Screenshot is required');
+    if (!screenshotFiles.length) {
+      setError('At least one screenshot is required');
       return;
     }
     setCreateLoading(true);
@@ -123,12 +138,12 @@ export default function InquiriesPage() {
     const fd = new FormData();
     fd.append('researchId', createData.researchId);
     fd.append('type', createData.type);
-    fd.append('screenshot', screenshotFile);
+    screenshotFiles.forEach((f) => fd.append('screenshots', f));
     api.post('/api/inquiry', fd)
       .then(() => {
         setShowCreate(false);
-        setCreateData({ researchId: '', type: 'WEBSITE' });
-        setScreenshotFile(null);
+        setCreateData({ researchId: '', type: isWebsiteInquirer ? 'WEBSITE' : 'LINKEDIN' });
+        setScreenshotFiles([]);
         fetchInquiries();
       })
       .catch((err) => setError(err.response?.data?.message || 'Submission failed'))
@@ -137,25 +152,32 @@ export default function InquiriesPage() {
 
   const handleResearchSelect = (researchId) => {
     const r = approvedResearch.find((x) => x._id === researchId);
-    const type = r ? (r.type === 'WEBSITE' || r.companyName ? 'WEBSITE' : 'LINKEDIN') : 'WEBSITE';
+    const type = r ? (r.type === 'WEBSITE' || r.companyName ? 'WEBSITE' : 'LINKEDIN') : (isWebsiteInquirer ? 'WEBSITE' : 'LINKEDIN');
     setCreateData({ researchId: researchId || '', type });
   };
 
+  const [resubmitScreenshots, setResubmitScreenshots] = useState([]);
+
   const openResubmit = (item) => {
     setResubmitItem(item);
-    setResubmitScreenshot(null);
+    setResubmitScreenshots([]);
+  };
+
+  const handleResubmitScreenshotsChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    setResubmitScreenshots(files.filter((f) => f.size <= MAX_IMAGE_SIZE));
   };
 
   const handleResubmitSubmit = (e) => {
     e.preventDefault();
-    if (!resubmitItem || !resubmitScreenshot) {
-      setError('Screenshot is required for resubmission');
+    if (!resubmitItem || !resubmitScreenshots.length) {
+      setError('At least one screenshot is required for resubmission');
       return;
     }
     setResubmitLoading(true);
     setError('');
     const fd = new FormData();
-    fd.append('screenshot', resubmitScreenshot);
+    resubmitScreenshots.forEach((f) => fd.append('screenshots', f));
     api.put(`/api/inquiry/${resubmitItem._id}/resubmit`, fd)
       .then(() => {
         setResubmitItem(null);
@@ -201,10 +223,32 @@ export default function InquiriesPage() {
             ))}
           </select>
           {canCreate && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ New Inquiry</button>
+            <>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ New Inquiry</button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  const links = res.data.map((r) => r.research?.companyLink || r.research?.linkedinLink).filter(Boolean);
+                  links.forEach((url) => window.open(url, '_blank'));
+                }}
+              >
+                Open links in bulk
+              </button>
+            </>
           )}
           {isAuditor && (
             <>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  const links = res.data.map((r) => r.research?.companyLink || r.research?.linkedinLink).filter(Boolean);
+                  links.forEach((url) => window.open(url, '_blank'));
+                }}
+              >
+                Open links in bulk
+              </button>
               <button type="button" className="btn btn-secondary btn-sm" onClick={selectAll}>
                 {selected.size === pendingIds.length ? 'Deselect all' : 'Select all pending'}
               </button>
@@ -247,11 +291,14 @@ export default function InquiriesPage() {
                 <thead>
                   <tr>
                     {isAuditor && <th style={{ width: '40px' }}><input type="checkbox" checked={pendingIds.length > 0 && selected.size === pendingIds.length} onChange={selectAll} /></th>}
+                    <th>Ref No</th>
                     <th>Type</th>
-                    <th>Target</th>
+                    <th>Company / Person</th>
                     <th>Link</th>
+                    <th>Country</th>
                     <th>Inquirer</th>
-                    <th>Screenshot</th>
+                    <th>Category</th>
+                    <th>Screenshots</th>
                     <th>Status</th>
                     {canCreate && <th>Actions</th>}
                   </tr>
@@ -266,6 +313,7 @@ export default function InquiriesPage() {
                           )}
                         </td>
                       )}
+                      <td><strong>{r.referenceNo || '—'}</strong></td>
                       <td>{r.type === 'WEBSITE' ? 'Website' : 'LinkedIn'}</td>
                       <td>{r.research ? (r.research.companyName || r.research.personName || '—') : '—'}</td>
                       <td>
@@ -275,11 +323,21 @@ export default function InquiriesPage() {
                           </a>
                         ) : '—'}
                       </td>
+                      <td>{r.research?.country || '—'}</td>
                       <td>{r.inquirer?.name || '—'}</td>
+                      <td>{r.category?.name || '—'}</td>
                       <td>
-                        {r.screenshot ? (
-                          <a href={r.screenshot} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: '0.875rem' }}>View</a>
-                        ) : '—'}
+                        {(() => {
+                          const urls = r.screenshots?.length ? r.screenshots : (r.screenshot ? [r.screenshot] : []);
+                          if (!urls.length) return '—';
+                          return (
+                            <span style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                              {urls.map((url, i) => (
+                                <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: '0.875rem' }}>View {urls.length > 1 ? i + 1 : ''}</a>
+                              ))}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td>
                         <span className={`badge badge-${r.status === 'APPROVED' ? 'approved' : r.status === 'DISAPPROVED' ? 'disapproved' : 'pending'}`}>{r.status}</span>
@@ -344,12 +402,13 @@ export default function InquiriesPage() {
             <input className="text-input" value={createData.type === 'WEBSITE' ? 'Website' : 'LinkedIn'} readOnly style={{ background: 'var(--bg-elevated)', opacity: 0.9 }} />
           </div>
           <div>
-            <label className="form-label">Screenshot (required) *</label>
-            <input type="file" accept="image/*" onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)} required />
+            <label className="form-label">Screenshots (required, multiple allowed). Max 500KB per image.</label>
+            <input type="file" accept="image/*" multiple onChange={handleCreateScreenshotsChange} />
+            {screenshotFiles.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{screenshotFiles.length} image(s) selected</span>}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={createLoading}>{createLoading ? 'Submitting…' : 'Submit'}</button>
+            <button type="submit" className="btn btn-primary" disabled={createLoading || !screenshotFiles.length}>{createLoading ? 'Submitting…' : 'Submit'}</button>
           </div>
         </form>
       </Dialog>
@@ -375,15 +434,16 @@ export default function InquiriesPage() {
         {resubmitItem && (
           <form onSubmit={handleResubmitSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div>
-              <label className="form-label">New Screenshot (required) *</label>
-              <input type="file" accept="image/*" onChange={(e) => setResubmitScreenshot(e.target.files?.[0] || null)} required />
+              <label className="form-label">New Screenshots (required, multiple allowed) *</label>
+              <input type="file" accept="image/*" multiple onChange={handleResubmitScreenshotsChange} />
+              {resubmitScreenshots.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{resubmitScreenshots.length} image(s) selected</span>}
             </div>
             {resubmitItem.disapprovalReason && (
               <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}><strong>Reason:</strong> {resubmitItem.disapprovalReason}</p>
             )}
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setResubmitItem(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={resubmitLoading || !resubmitScreenshot}>{resubmitLoading ? 'Submitting…' : 'Resubmit'}</button>
+              <button type="submit" className="btn btn-primary" disabled={resubmitLoading || !resubmitScreenshots.length}>{resubmitLoading ? 'Submitting…' : 'Resubmit'}</button>
             </div>
           </form>
         )}

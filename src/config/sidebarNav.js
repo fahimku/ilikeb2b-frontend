@@ -52,7 +52,13 @@ export const SIDEBAR_NAV = [
     path: '/dashboard/payments',
     label: 'Payments',
     icon: 'dollar',
-    roles: ['SUPER_ADMIN', 'CATEGORY_ADMIN'],
+    roles: [
+      'SUPER_ADMIN', 'CATEGORY_ADMIN',
+      'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
+      'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
+      'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
+      'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
+    ],
   },
   {
     path: '/dashboard/notices',
