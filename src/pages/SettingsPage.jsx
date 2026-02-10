@@ -84,7 +84,7 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {error && <div className="dashboard-error">{error}</div>}
+      {/* {error && <div className="dashboard-error">{error}</div>} */}
 
       {activeTab === 'disapproval' && (
         <motion.div
@@ -98,13 +98,13 @@ export default function SettingsPage() {
               <h2 className="settings-section-title">Disapproval Reasons</h2>
               <p className="settings-section-desc">Manage reasons that auditors can use when disapproving submissions.</p>
             </div>
-            <button
+            {/* <button
               type="button"
               className="btn btn-primary"
               onClick={() => setShowAdd(true)}
             >
               + Add Reason
-            </button>
+            </button> */}
           </div>
 
           {showAdd && (

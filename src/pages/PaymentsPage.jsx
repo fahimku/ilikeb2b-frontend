@@ -71,11 +71,11 @@ export default function PaymentsPage() {
       <motion.div className="content-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Payment Records</h2>
-          {canGenerate && (
+          {/* {canGenerate && (
             <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
               {generating ? 'Generating…' : 'Generate payments (backfill)'}
             </button>
-          )}
+          )} */}
         </div>
 
         {loading ? (
