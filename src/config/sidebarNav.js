@@ -28,26 +28,26 @@ export const SIDEBAR_NAV = [
     icon: 'users',
     roles: ['SUPER_ADMIN', 'CATEGORY_ADMIN'],
   },
-  // {
-  //   path: '/dashboard/research',
-  //   label: 'Research',
-  //   icon: 'search',
-  //   roles: [
-  //     'SUPER_ADMIN', 'CATEGORY_ADMIN',
-  //     'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
-  //     'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
-  //   ],
-  // },
-  // {
-  //   path: '/dashboard/inquiries',
-  //   label: 'Inquiries',
-  //   icon: 'mail',
-  //   roles: [
-  //     'SUPER_ADMIN', 'CATEGORY_ADMIN',
-  //     'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
-  //     'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
-  //   ],
-  // },
+  {
+    path: '/dashboard/research',
+    label: 'Research',
+    icon: 'search',
+    roles: [
+      'SUPER_ADMIN', 'CATEGORY_ADMIN',
+      'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
+      'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
+    ],
+  },
+  {
+    path: '/dashboard/inquiries',
+    label: 'Inquiries',
+    icon: 'mail',
+    roles: [
+      'SUPER_ADMIN', 'CATEGORY_ADMIN',
+      'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
+      'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
+    ],
+  },
   {
     path: '/dashboard/payments',
     label: 'Payments',
@@ -60,18 +60,18 @@ export const SIDEBAR_NAV = [
       'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
     ],
   },
-  // {
-  //   path: '/dashboard/notices',
-  //   label: 'Notices',
-  //   icon: 'bell',
-  //   roles: [
-  //     'SUPER_ADMIN', 'CATEGORY_ADMIN',
-  //     'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
-  //     'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
-  //     'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
-  //     'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
-  //   ],
-  // },
+  {
+    path: '/dashboard/notices',
+    label: 'Notices',
+    icon: 'bell',
+    roles: [
+      'SUPER_ADMIN', 'CATEGORY_ADMIN',
+      'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
+      'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
+      'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
+      'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
+    ],
+  },
 ];
 
 export const ROLE_LABELS = {
