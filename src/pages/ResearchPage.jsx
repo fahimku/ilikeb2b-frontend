@@ -299,7 +299,7 @@ export default function ResearchPage() {
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={() => {
-                const links = res.data.map((r) => r.companyLink || r.linkedinLink).filter(Boolean);
+                const links = [...new Set(res.data.map((r) => r.companyLink || r.linkedinLink).filter(Boolean))];
                 links.forEach((url) => window.open(url, '_blank'));
               }}
             >

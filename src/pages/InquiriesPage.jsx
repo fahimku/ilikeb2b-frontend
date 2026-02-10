@@ -231,7 +231,7 @@ export default function InquiriesPage() {
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
-                  const links = res.data.map((r) => r.research?.companyLink || r.research?.linkedinLink).filter(Boolean);
+                  const links = [...new Set(res.data.map((r) => r.research?.companyLink || r.research?.linkedinLink).filter(Boolean))];
                   links.forEach((url) => window.open(url, '_blank'));
                 }}
               >
@@ -245,7 +245,7 @@ export default function InquiriesPage() {
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
-                  const links = res.data.map((r) => r.research?.companyLink || r.research?.linkedinLink).filter(Boolean);
+                  const links = [...new Set(res.data.map((r) => r.research?.companyLink || r.research?.linkedinLink).filter(Boolean))];
                   links.forEach((url) => window.open(url, '_blank'));
                 }}
               >
@@ -401,8 +401,20 @@ export default function InquiriesPage() {
           </div>
           <div>
             <label className="form-label">Type</label>
-            <input className="text-input" value={createData.type === 'WEBSITE' ? 'Website' : 'LinkedIn'} readOnly style={{ background: 'var(--bg-elevated)', opacity: 0.9 }} />
+            <input className="text-input" value={createData.type === 'WEBSITE' ? 'Website' : 'LinkedIn'} readOnly style={{  opacity: 0.9 }} />
           </div>
+          {createData.researchId && (() => {
+            const sel = approvedResearch.find((x) => x._id === createData.researchId);
+            const link = sel?.companyLink || sel?.linkedinLink;
+            return link ? (
+              <div>
+                <label className="form-label">Target link</label>
+                <a href={link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)', fontSize: '0.9rem', wordBreak: 'break-all' }}>
+                  Open link ↗
+                </a>
+              </div>
+            ) : null;
+          })()}
           <div>
             <label className="form-label">Screenshots (required, multiple allowed). Max 500KB per image.</label>
             <input type="file" accept="image/*" multiple onChange={handleCreateScreenshotsChange} />
