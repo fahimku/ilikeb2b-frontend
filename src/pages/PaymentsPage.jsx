@@ -11,20 +11,33 @@ export default function PaymentsPage() {
   const [generating, setGenerating] = useState(false);
   const [payingId, setPayingId] = useState(null);
   const [payAmount, setPayAmount] = useState('');
+  const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categories, setCategories] = useState([]);
   const canMarkPaid = user?.role === 'SUPER_ADMIN';
   const canGenerate = ['SUPER_ADMIN', 'CATEGORY_ADMIN'].includes(user?.role);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const fetchPayments = () => {
     setLoading(true);
-    api.get('/api/payments')
+    const params = {};
+    if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
+    if (search.trim()) params.search = search.trim();
+    api.get('/api/payments', { params })
       .then(({ data }) => setList(data))
       .catch((err) => setError(err.response?.data?.message || 'Failed to load'))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
+    if (isSuperAdmin) {
+      api.get('/api/categories').then(({ data }) => setCategories(data || [])).catch(() => {});
+    }
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
     fetchPayments();
-  }, []);
+  }, [categoryFilter, search]);
 
   const handleGenerate = () => {
     setGenerating(true);
@@ -69,13 +82,30 @@ export default function PaymentsPage() {
       {error && <div className="dashboard-error">{error}</div>}
 
       <motion.div className="content-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Payment Records</h2>
-          {canGenerate && (
-            <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
-              {generating ? 'Generating…' : 'Generate payments (backfill)'}
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              className="text-input"
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '180px' }}
+            />
+            {isSuperAdmin && (
+              <select className="select-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ minWidth: '150px' }}>
+                <option value="">All categories</option>
+                {categories.map((c) => (
+                  <option key={c._id} value={c._id}>{c.name}</option>
+                ))}
+              </select>
+            )}
+            {canGenerate && (
+              <button type="button" className="btn btn-primary" onClick={handleGenerate} disabled={generating}>
+                {generating ? 'Generating…' : 'Generate payments (backfill)'}
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (

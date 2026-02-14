@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import Dialog from '../components/Dialog';
+import { COUNTRIES } from '../config/countries';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -44,6 +45,7 @@ export default function InquiriesPage() {
   const [search, setSearch] = useState('');
   const [searchSubmitted, setSearchSubmitted] = useState(0);
   const [categories, setCategories] = useState([]);
+  const [country, setCountry] = useState('');
   const [editInquiry, setEditInquiry] = useState(null);
   const [editInquiryStatus, setEditInquiryStatus] = useState('');
   const [editInquiryLoading, setEditInquiryLoading] = useState(false);
@@ -62,6 +64,7 @@ export default function InquiriesPage() {
     setLoading(true);
     const params = { page, limit };
     if (status) params.status = status;
+    if (country.trim()) params.country = country.trim();
     if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
     if (isSuperAdmin && search.trim()) params.search = search.trim();
     api.get('/api/inquiry', { params, signal })
@@ -71,7 +74,7 @@ export default function InquiriesPage() {
         setError(err.response?.data?.message || 'Failed to load');
       })
       .finally(() => setLoading(false));
-  }, [page, limit, status, categoryFilter, searchSubmitted, isSuperAdmin]);
+  }, [page, limit, status, country, categoryFilter, searchSubmitted, isSuperAdmin]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -219,6 +222,12 @@ export default function InquiriesPage() {
               </form>
             </>
           )}
+          <select className="select-input" value={country} onChange={(e) => { setCountry(e.target.value); setPage(1); }} style={{ width: '140px' }}>
+            <option value="">All countries</option>
+            {COUNTRIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           <select className="select-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value || 'all'} value={o.value}>{o.label}</option>

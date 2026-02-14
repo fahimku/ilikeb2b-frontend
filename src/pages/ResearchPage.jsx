@@ -279,13 +279,12 @@ export default function ResearchPage() {
               ))}
             </select>
           )}
-          <input
-            className="text-input"
-            placeholder="Country"
-            value={country}
-            onChange={(e) => { setCountry(e.target.value); setPage(1); }}
-            style={{ width: '120px' }}
-          />
+          <select className="select-input" value={country} onChange={(e) => { setCountry(e.target.value); setPage(1); }} style={{ width: '140px' }}>
+            <option value="">All countries</option>
+            {COUNTRIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
           <select className="select-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value || 'all'} value={o.value}>{o.label}</option>

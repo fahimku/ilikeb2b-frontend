@@ -35,6 +35,7 @@ const initialValues = {
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [list, setList] = useState([]);
+  const [filteredList, setFilteredList] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,6 +45,8 @@ export default function UsersPage() {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [profileImageFile, setProfileImageFile] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [search, setSearch] = useState('');
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
@@ -54,8 +57,10 @@ export default function UsersPage() {
   const isCategoryAdmin = currentUser?.role === 'CATEGORY_ADMIN';
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
 
-  const fetchUsers = () => {
-    api.get('/api/users').then(({ data }) => setList(data)).catch(() => setError('Failed to load users'));
+  const fetchUsers = (signal) => {
+    const params = {};
+    if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
+    return api.get('/api/users', { params, signal });
   };
 
   useEffect(() => {
@@ -63,12 +68,13 @@ export default function UsersPage() {
     const signal = controller.signal;
     setLoading(true);
     Promise.all([
-      api.get('/api/users', { signal }),
+      fetchUsers(signal),
       api.get('/api/categories', { signal }),
     ])
       .then(([u, c]) => {
         if (signal.aborted) return;
         setList(u.data);
+        setFilteredList(u.data);
         setCategories(c.data);
       })
       .catch((err) => {
@@ -79,7 +85,20 @@ export default function UsersPage() {
         if (!signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, []);
+  }, [categoryFilter, isSuperAdmin]);
+
+  useEffect(() => {
+    if (!search.trim()) {
+      setFilteredList(list);
+    } else {
+      const searchLower = search.toLowerCase();
+      setFilteredList(list.filter((u) => 
+        u.name?.toLowerCase().includes(searchLower) || 
+        u.email?.toLowerCase().includes(searchLower) ||
+        u.role?.toLowerCase().includes(searchLower)
+      ));
+    }
+  }, [search, list]);
 
   const openDialog = () => {
     setErrors({});
@@ -211,11 +230,28 @@ export default function UsersPage() {
       {error && <div className="dashboard-error">{error}</div>}
 
       <motion.div className="content-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Users</h2>
-          <button type="button" className="btn btn-primary" onClick={openDialog}>
-            + Add User
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              className="text-input"
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '180px' }}
+            />
+            {isSuperAdmin && (
+              <select className="select-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ minWidth: '150px' }}>
+                <option value="">All categories</option>
+                {categories.map((c) => (
+                  <option key={c._id} value={c._id}>{c.name}</option>
+                ))}
+              </select>
+            )}
+            <button type="button" className="btn btn-primary" onClick={openDialog}>
+              + Add User
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -237,7 +273,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {list.map((u) => (
+                {filteredList.map((u) => (
                   <tr key={u._id}>
                     <td>
                       {u.profileImage ? (

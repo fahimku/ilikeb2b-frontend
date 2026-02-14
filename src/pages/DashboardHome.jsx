@@ -29,10 +29,21 @@ export default function DashboardHome() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [categories, setCategories] = useState([]);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      api.get('/api/categories').then(({ data }) => setCategories(data || [])).catch(() => {});
+    }
+  }, [isSuperAdmin]);
 
   useEffect(() => {
     const controller = new AbortController();
-    api.get('/api/dashboard', { signal: controller.signal })
+    const params = {};
+    if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
+    api.get('/api/dashboard', { params, signal: controller.signal })
       .then(({ data }) => setStats(data))
       .catch((err) => {
         if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
@@ -40,7 +51,7 @@ export default function DashboardHome() {
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, []);
+  }, [categoryFilter, isSuperAdmin]);
 
   const researchByStatus = (stats?.research || []).reduce((acc, r) => {
     acc[r._id] = r.count;
@@ -69,8 +80,20 @@ export default function DashboardHome() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <h1 className="page-title">Welcome back, {user?.name || 'User'}!</h1>
-        <p className="page-subtitle">{today}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 className="page-title">Welcome back, {user?.name || 'User'}!</h1>
+            <p className="page-subtitle">{today}</p>
+          </div>
+          {isSuperAdmin && (
+            <select className="select-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ minWidth: '180px' }}>
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c._id} value={c._id}>{c.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </motion.div>
 
       {loading && (

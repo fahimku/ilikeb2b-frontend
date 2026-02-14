@@ -1099,9 +1099,13 @@ body {
 }
 
 .data-table th {
-  font-weight: 600;
-  color: var(--text-muted);
-  background: var(--content-bg);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--bg-elevated);
+  border-bottom: 2px solid var(--border);
 }
 
 .data-table tr:hover td {
