@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://outside-marmoset-student1993-41549ddf.koyeb.app',
+  baseURL: import.meta.env.VITE_API_URL || 'https://ilikeb2b-server.onrender.com/',
   headers: { 'Content-Type': 'application/json' },
 });
 
