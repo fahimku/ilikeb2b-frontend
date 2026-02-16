@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import Dialog from '../components/Dialog';
 
 export default function CategoriesPage() {
   const { user } = useAuth();
@@ -10,7 +11,7 @@ export default function CategoriesPage() {
   const [filteredList, setFilteredList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showForm, setShowForm] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ name: '', cooldownDays: 30 });
   const [search, setSearch] = useState('');
@@ -51,13 +52,22 @@ export default function CategoriesPage() {
     }
   }, [search, list]);
 
+  const openDialog = () => {
+    setForm({ name: '', cooldownDays: 30 });
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setForm({ name: '', cooldownDays: 30 });
+  };
+
   const handleCreate = (e) => {
     e.preventDefault();
     setSubmitting(true);
     api.post('/api/categories', form)
       .then(() => {
-        setForm({ name: '', cooldownDays: 30 });
-        setShowForm(false);
+        closeDialog();
         fetchCategories();
       })
       .catch((err) => setError(err.response?.data?.message || 'Create failed'))
@@ -90,47 +100,12 @@ export default function CategoriesPage() {
               style={{ width: '200px' }}
             />
             {canCreate && (
-              <button type="button" className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-                {showForm ? 'Cancel' : 'Add category'}
+              <button type="button" className="btn btn-primary" onClick={openDialog}>
+                Add category
               </button>
             )}
           </div>
         </div>
-
-        {showForm && (
-          <motion.form
-            onSubmit={handleCreate}
-            style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--content-bg)', borderRadius: 'var(--radius-sm)', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <label>
-              Name
-              <input
-                className="text-input"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Category name"
-                required
-                style={{ marginLeft: '0.5rem' }}
-              />
-            </label>
-            <label>
-              Cooldown days
-              <input
-                type="number"
-                className="text-input"
-                value={form.cooldownDays}
-                onChange={(e) => setForm((f) => ({ ...f, cooldownDays: Number(e.target.value) || 30 }))}
-                min={1}
-                style={{ marginLeft: '0.5rem', width: '80px' }}
-              />
-            </label>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? 'Creating...' : 'Create'}
-            </button>
-          </motion.form>
-        )}
 
         {loading ? (
           <div className="dashboard-loading" style={{ padding: '2rem' }}>
@@ -159,6 +134,42 @@ export default function CategoriesPage() {
           </div>
         )}
       </motion.div>
+
+      {canCreate && (
+        <Dialog open={dialogOpen} onClose={closeDialog} title="Add category" subtitle="Create a new business category.">
+          <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <label>
+              <span style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 500 }}>Name</span>
+              <input
+                className="form-input"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Category name"
+                required
+              />
+            </label>
+            <label>
+              <span style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 500 }}>Cooldown (days)</span>
+              <input
+                type="number"
+                className="form-input"
+                value={form.cooldownDays}
+                onChange={(e) => setForm((f) => ({ ...f, cooldownDays: Number(e.target.value) || 30 }))}
+                min={1}
+                style={{ width: '100px' }}
+              />
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <button type="submit" className="btn btn-primary" disabled={submitting}>
+                {submitting ? 'Creating...' : 'Create'}
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={closeDialog}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
     </>
   );
 }

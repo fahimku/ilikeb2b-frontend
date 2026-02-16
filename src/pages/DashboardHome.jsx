@@ -41,6 +41,7 @@ export default function DashboardHome() {
 
   useEffect(() => {
     const controller = new AbortController();
+    setLoading(true);
     const params = {};
     if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
     api.get('/api/dashboard', { params, signal: controller.signal })
@@ -97,7 +98,7 @@ export default function DashboardHome() {
       </motion.div>
 
       {loading && (
-        <div className="dashboard-loading">
+        <div className="dashboard-loading" style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', padding: '3rem' }}>
           <div className="auth-loading-spinner" />
           <span>Loading dashboard...</span>
         </div>
@@ -181,23 +182,6 @@ export default function DashboardHome() {
               </ul>
             </div>
           </div>
-        </motion.div>
-      )}
-
-      {/* My Payments - all users */}
-      {!loading && stats?.userPaymentSummary && (stats.userPaymentSummary.total > 0 || stats.userPaymentSummary.paid > 0 || stats.userPaymentSummary.pending > 0 || stats.userPaymentSummary.pendingWorkCount > 0 || stats.userPaymentSummary.approvedWorkCount > 0) && (
-        <motion.div
-          className="content-card"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.03 }}
-          style={{ marginBottom: '1.5rem' }}
-        >
-          <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>My Payments</h2>
-          <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-            Pending audit: {stats.userPaymentSummary.pendingWorkCount ?? 0} (${(stats.userPaymentSummary.pendingWorkAmount ?? 0).toFixed(2)}) · Approved: {stats.userPaymentSummary.approvedWorkCount ?? 0} (${(stats.userPaymentSummary.approvedWorkAmount ?? 0).toFixed(2)}) · Paid: ${(stats.userPaymentSummary.paid ?? 0).toFixed(2)}
-          </p>
-          <Link to="/dashboard/payments" style={{ display: 'inline-block', marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--accent)' }}>View all transactions →</Link>
         </motion.div>
       )}
 

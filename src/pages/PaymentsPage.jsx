@@ -70,6 +70,28 @@ export default function PaymentsPage() {
     ? 'No payment records. Payments are created automatically when research/inquiry is approved. Use "Generate payments" to backfill for existing approved work.'
     : 'No payment records yet. Payments are created when your approved research or inquiry work is audited.';
 
+  // My Payments summary (for non-admin users who see their own payments)
+  const showMyPaymentsSummary = !canMarkPaid && !canGenerate;
+  const paymentSummary = showMyPaymentsSummary && list.length > 0
+    ? list.reduce(
+        (acc, p) => {
+          const amt = p.totalAmount ?? 0;
+          const paidAmt = p.paidAmount ?? 0;
+          acc.total += amt;
+          acc.paid += paidAmt;
+          if (p.workStatus === 'PENDING') {
+            acc.pendingWorkCount++;
+            acc.pendingWorkAmount += amt;
+          } else {
+            acc.approvedWorkCount++;
+            acc.approvedWorkAmount += amt;
+          }
+          return acc;
+        },
+        { total: 0, paid: 0, pendingWorkCount: 0, approvedWorkCount: 0, pendingWorkAmount: 0, approvedWorkAmount: 0 }
+      )
+    : null;
+
   return (
     <>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
@@ -80,6 +102,20 @@ export default function PaymentsPage() {
       </motion.div>
 
       {error && <div className="dashboard-error">{error}</div>}
+
+      {showMyPaymentsSummary && paymentSummary && !loading && (
+        <motion.div
+          className="content-card"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ marginBottom: '1rem' }}
+        >
+          <h2 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>My Payments</h2>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Pending audit: {paymentSummary.pendingWorkCount} (${(paymentSummary.pendingWorkAmount ?? 0).toFixed(2)}) · Approved: {paymentSummary.approvedWorkCount} (${(paymentSummary.approvedWorkAmount ?? 0).toFixed(2)}) · Paid: ${(paymentSummary.paid ?? 0).toFixed(2)}
+          </p>
+        </motion.div>
+      )}
 
       <motion.div className="content-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
@@ -109,7 +145,10 @@ export default function PaymentsPage() {
         </div>
 
         {loading ? (
-          <div className="dashboard-loading" style={{ padding: '2rem' }}><div className="auth-loading-spinner" /></div>
+          <div className="dashboard-loading" style={{ minHeight: '120px', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+            <div className="auth-loading-spinner" />
+            <span>Loading payments...</span>
+          </div>
         ) : (
           <div className="data-table-wrap">
             <table className="data-table">
