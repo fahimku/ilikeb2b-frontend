@@ -48,30 +48,30 @@ export const SIDEBAR_NAV = [
       'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
     ],
   },
-  {
-    path: '/dashboard/payments',
-    label: 'Payments',
-    icon: 'dollar',
-    roles: [
-      'SUPER_ADMIN', 'CATEGORY_ADMIN',
-      'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
-      'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
-      'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
-      'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
-    ],
-  },
-  {
-    path: '/dashboard/notices',
-    label: 'Notices',
-    icon: 'bell',
-    roles: [
-      'SUPER_ADMIN', 'CATEGORY_ADMIN',
-      'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
-      'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
-      'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
-      'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
-    ],
-  },
+  // {
+  //   path: '/dashboard/payments',
+  //   label: 'Payments',
+  //   icon: 'dollar',
+  //   roles: [
+  //     'SUPER_ADMIN', 'CATEGORY_ADMIN',
+  //     'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
+  //     'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
+  //     'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
+  //     'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
+  //   ],
+  // },
+  // {
+  //   path: '/dashboard/notices',
+  //   label: 'Notices',
+  //   icon: 'bell',
+  //   roles: [
+  //     'SUPER_ADMIN', 'CATEGORY_ADMIN',
+  //     'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
+  //     'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
+  //     'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
+  //     'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
+  //   ],
+  // },
 ];
 
 export const ROLE_LABELS = {
