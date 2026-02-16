@@ -234,32 +234,10 @@ export default function InquiriesPage() {
             ))}
           </select>
           {canCreate && (
-            <>
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ New Inquiry</button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  const links = [...new Set(res.data.map((r) => r.research?.companyLink || r.research?.linkedinLink).filter(Boolean))];
-                  links.forEach((url) => window.open(url, '_blank'));
-                }}
-              >
-                Open links in bulk
-              </button>
-            </>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ New Inquiry</button>
           )}
           {isAuditor && (
             <>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => {
-                  const links = [...new Set(res.data.map((r) => r.research?.companyLink || r.research?.linkedinLink).filter(Boolean))];
-                  links.forEach((url) => window.open(url, '_blank'));
-                }}
-              >
-                Open links in bulk
-              </button>
               <button type="button" className="btn btn-secondary btn-sm" onClick={selectAll}>
                 {selected.size === pendingIds.length ? 'Deselect all' : 'Select all pending'}
               </button>

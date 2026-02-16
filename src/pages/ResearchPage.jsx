@@ -293,18 +293,6 @@ export default function ResearchPage() {
           {canCreate && (
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowCreate(true)}>+ New</button>
           )}
-          {(isAuditor || canCreate) && (
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                const links = [...new Set(res.data.map((r) => r.companyLink || r.linkedinLink).filter(Boolean))];
-                links.forEach((url) => window.open(url, '_blank'));
-              }}
-            >
-              Open links in bulk
-            </button>
-          )}
           {isAuditor && (
             <>
               <button type="button" className="btn btn-secondary btn-sm" onClick={selectAll}>
