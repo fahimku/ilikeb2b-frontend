@@ -201,7 +201,7 @@ export default function InquiriesPage() {
     <>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="page-title">Inquiries</h1>
-        <p className="page-subtitle">Website & LinkedIn inquiry records.</p>
+        <p className="page-subtitle">Inquiry records.</p>
       </motion.div>
 
       {error && <div className="dashboard-error">{error}</div>}

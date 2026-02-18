@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+
+const DASHBOARD_PATH = '/dashboard';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -12,12 +14,10 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const { login, user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = location.state?.from?.pathname || '/dashboard';
 
   useEffect(() => {
-    if (user) navigate(from, { replace: true });
-  }, [user, navigate, from]);
+    if (user) navigate(DASHBOARD_PATH, { replace: true });
+  }, [user, navigate]);
 
   if (user) return null;
 
@@ -28,7 +28,7 @@ export default function Login() {
     try {
       await login(email, password);
       setSuccess(true);
-      setTimeout(() => navigate(from, { replace: true }), 400);
+      setTimeout(() => navigate(DASHBOARD_PATH, { replace: true }), 400);
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid email or password. Please try again.');
     } finally {
