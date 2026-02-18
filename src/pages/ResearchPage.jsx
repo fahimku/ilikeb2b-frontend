@@ -429,7 +429,7 @@ export default function ResearchPage() {
 
       {/* Create Research Dialog */}
       <Dialog open={showCreate} onClose={() => setShowCreate(false)} title="Add Research" subtitle={isWebsiteResearcher ? "Submit company website data." : isLinkedInResearcher ? "Submit LinkedIn profile data." : "Submit a new research record."}>
-        <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleCreateSubmit} className="research-dialog-form">
           {!isWebsiteResearcher && !isLinkedInResearcher && (
             <div>
               <label className="form-label">Type</label>
@@ -443,22 +443,22 @@ export default function ResearchPage() {
             <>
               <div>
                 <label className="form-label">Company Name *</label>
-                <input className="text-input" value={createData.companyName} onChange={(e) => setCreateData((d) => ({ ...d, companyName: e.target.value }))} placeholder="Company name" required />
+                <input className="text-input" value={createData.companyName} onChange={(e) => setCreateData((d) => ({ ...d, companyName: e.target.value }))} placeholder="Company name" required style={{ width: '100%' }} />
               </div>
-              <div>
+              <div style={{ width: '100%' }}>
                 <label className="form-label">Company Link *</label>
-                <input className="text-input" value={createData.companyLink} onChange={(e) => setCreateData((d) => ({ ...d, companyLink: e.target.value }))} placeholder="https://..." type="url" required />
+                <input className="text-input" value={createData.companyLink} onChange={(e) => setCreateData((d) => ({ ...d, companyLink: e.target.value }))} placeholder="https://..." type="url" required style={{ width: '100%' }} />
               </div>
             </>
           ) : (
             <>
               <div>
                 <label className="form-label">Person Name *</label>
-                <input className="text-input" value={createData.personName} onChange={(e) => setCreateData((d) => ({ ...d, personName: e.target.value }))} placeholder="Person name" required />
+                <input className="text-input" value={createData.personName} onChange={(e) => setCreateData((d) => ({ ...d, personName: e.target.value }))} placeholder="Person name" required style={{ width: '100%' }} />
               </div>
-              <div>
+              <div style={{ width: '100%' }}>
                 <label className="form-label">LinkedIn Profile Link *</label>
-                <input className="text-input" value={createData.linkedinLink} onChange={(e) => setCreateData((d) => ({ ...d, linkedinLink: e.target.value }))} placeholder="https://linkedin.com/..." type="url" required />
+                <input className="text-input" value={createData.linkedinLink} onChange={(e) => setCreateData((d) => ({ ...d, linkedinLink: e.target.value }))} placeholder="https://linkedin.com/..." type="url" required style={{ width: '100%' }} />
               </div>
             </>
           )}
@@ -501,16 +501,16 @@ export default function ResearchPage() {
               .then(() => { setEditResearch(null); fetchResearch(); })
               .catch((err) => setError(err.response?.data?.message || 'Update failed'))
               .finally(() => setEditResearchLoading(false));
-          }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          }} className="research-dialog-form">
             {(editResearch.type === 'WEBSITE' || editResearch.companyName) ? (
               <>
                 <div><label className="form-label">Company Name</label><input className="text-input" value={editResearchData.companyName} onChange={(e) => setEditResearchData((d) => ({ ...d, companyName: e.target.value }))} style={{ width: '100%' }} /></div>
-                <div><label className="form-label">Company Link</label><input className="text-input" value={editResearchData.companyLink} onChange={(e) => setEditResearchData((d) => ({ ...d, companyLink: e.target.value }))} style={{ width: '100%' }} /></div>
+                <div style={{ width: '100%' }}><label className="form-label">Company Link</label><input className="text-input" value={editResearchData.companyLink} onChange={(e) => setEditResearchData((d) => ({ ...d, companyLink: e.target.value }))} style={{ width: '100%' }} /></div>
               </>
             ) : (
               <>
                 <div><label className="form-label">Person Name</label><input className="text-input" value={editResearchData.personName} onChange={(e) => setEditResearchData((d) => ({ ...d, personName: e.target.value }))} style={{ width: '100%' }} /></div>
-                <div><label className="form-label">LinkedIn Link</label><input className="text-input" value={editResearchData.linkedinLink} onChange={(e) => setEditResearchData((d) => ({ ...d, linkedinLink: e.target.value }))} style={{ width: '100%' }} /></div>
+                <div style={{ width: '100%' }}><label className="form-label">LinkedIn Link</label><input className="text-input" value={editResearchData.linkedinLink} onChange={(e) => setEditResearchData((d) => ({ ...d, linkedinLink: e.target.value }))} style={{ width: '100%' }} /></div>
               </>
             )}
             <div><label className="form-label">Country</label><select className="select-input" value={editResearchData.country} onChange={(e) => setEditResearchData((d) => ({ ...d, country: e.target.value }))} style={{ width: '100%' }}><option value="">Select</option>{COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
@@ -523,27 +523,27 @@ export default function ResearchPage() {
       {/* Resubmit Dialog */}
       <Dialog open={!!resubmitItem} onClose={() => setResubmitItem(null)} title="Resubmit Research" subtitle="Correct and resubmit for re-review. You can only resubmit once.">
         {resubmitItem && (
-          <form onSubmit={handleResubmitSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <form onSubmit={handleResubmitSubmit} className="research-dialog-form">
             {resubmitItem.companyName || resubmitItem.companyLink ? (
               <>
                 <div>
                   <label className="form-label">Company Name *</label>
-                  <input className="text-input" value={resubmitData.companyName} onChange={(e) => setResubmitData((d) => ({ ...d, companyName: e.target.value }))} required />
+                  <input className="text-input" value={resubmitData.companyName} onChange={(e) => setResubmitData((d) => ({ ...d, companyName: e.target.value }))} required style={{ width: '100%' }} />
                 </div>
-                <div>
+                <div style={{ width: '100%' }}>
                   <label className="form-label">Company Link *</label>
-                  <input className="text-input" value={resubmitData.companyLink} onChange={(e) => setResubmitData((d) => ({ ...d, companyLink: e.target.value }))} type="url" required />
+                  <input className="text-input" value={resubmitData.companyLink} onChange={(e) => setResubmitData((d) => ({ ...d, companyLink: e.target.value }))} type="url" required style={{ width: '100%' }} />
                 </div>
               </>
             ) : (
               <>
                 <div>
                   <label className="form-label">Person Name *</label>
-                  <input className="text-input" value={resubmitData.personName} onChange={(e) => setResubmitData((d) => ({ ...d, personName: e.target.value }))} required />
+                  <input className="text-input" value={resubmitData.personName} onChange={(e) => setResubmitData((d) => ({ ...d, personName: e.target.value }))} required style={{ width: '100%' }} />
                 </div>
-                <div>
+                <div style={{ width: '100%' }}>
                   <label className="form-label">LinkedIn Profile Link *</label>
-                  <input className="text-input" value={resubmitData.linkedinLink} onChange={(e) => setResubmitData((d) => ({ ...d, linkedinLink: e.target.value }))} type="url" required />
+                  <input className="text-input" value={resubmitData.linkedinLink} onChange={(e) => setResubmitData((d) => ({ ...d, linkedinLink: e.target.value }))} type="url" required style={{ width: '100%' }} />
                 </div>
               </>
             )}
