@@ -471,12 +471,14 @@ export default function ResearchPage() {
               ))}
             </select>
           </div>
-          <div>
-            <label className="form-label">Screenshots (optional for Website, recommended for LinkedIn). Max 500KB per image.</label>
-            <input type="file" accept="image/*" multiple onChange={handleCreateScreenshotsChange} />
-            {screenshotFiles.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{screenshotFiles.length} image(s) selected</span>}
-            {screenshotError && <span className="form-error" style={{ display: 'block', marginTop: '0.25rem' }}>{screenshotError}</span>}
-          </div>
+          {!(isWebsiteResearcher || isLinkedInResearcher) && (
+            <div>
+              <label className="form-label">Screenshots (optional for Website, recommended for LinkedIn). Max 500KB per image.</label>
+              <input type="file" accept="image/*" multiple onChange={handleCreateScreenshotsChange} />
+              {screenshotFiles.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{screenshotFiles.length} image(s) selected</span>}
+              {screenshotError && <span className="form-error" style={{ display: 'block', marginTop: '0.25rem' }}>{screenshotError}</span>}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={createLoading}>{createLoading ? 'Submitting…' : 'Submit'}</button>
@@ -556,12 +558,14 @@ export default function ResearchPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="form-label">New Screenshots (optional). Max 500KB per image.</label>
-              <input type="file" accept="image/*" multiple onChange={handleResubmitScreenshotsChange} />
-              {resubmitScreenshots.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{resubmitScreenshots.length} image(s) selected</span>}
-              {resubmitScreenshotError && <span className="form-error" style={{ display: 'block', marginTop: '0.25rem' }}>{resubmitScreenshotError}</span>}
-            </div>
+            {!(isWebsiteResearcher || isLinkedInResearcher) && (
+              <div>
+                <label className="form-label">New Screenshots (optional). Max 500KB per image.</label>
+                <input type="file" accept="image/*" multiple onChange={handleResubmitScreenshotsChange} />
+                {resubmitScreenshots.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{resubmitScreenshots.length} image(s) selected</span>}
+                {resubmitScreenshotError && <span className="form-error" style={{ display: 'block', marginTop: '0.25rem' }}>{resubmitScreenshotError}</span>}
+              </div>
+            )}
             {resubmitItem.disapprovalReason && (
               <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}><strong>Reason:</strong> {resubmitItem.disapprovalReason}</p>
             )}

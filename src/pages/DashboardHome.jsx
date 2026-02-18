@@ -31,7 +31,9 @@ export default function DashboardHome() {
   const [error, setError] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [categories, setCategories] = useState([]);
+  const [researchByCountry, setResearchByCountry] = useState([]);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isResearcher = ['WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER'].includes(user?.role);
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -53,6 +55,32 @@ export default function DashboardHome() {
       .finally(() => setLoading(false));
     return () => controller.abort();
   }, [categoryFilter, isSuperAdmin]);
+
+  // Country statistics: only approved research counts per country (for researchers)
+  useEffect(() => {
+    if (!isResearcher || loading) return;
+    const controller = new AbortController();
+    if (stats?.researchByCountry && Array.isArray(stats.researchByCountry)) {
+      setResearchByCountry(stats.researchByCountry);
+      return () => controller.abort();
+    }
+    api.get('/api/research', { params: { status: 'APPROVED', limit: 1000 }, signal: controller.signal })
+      .then(({ data }) => {
+        const list = data?.data || [];
+        const byCountry = list.reduce((acc, r) => {
+          const c = (r.country || '').trim() || '—';
+          acc[c] = (acc[c] || 0) + 1;
+          return acc;
+        }, {});
+        setResearchByCountry(
+          Object.entries(byCountry)
+            .map(([country, count]) => ({ country, count }))
+            .sort((a, b) => (b.count - a.count))
+        );
+      })
+      .catch(() => setResearchByCountry([]));
+    return () => controller.abort();
+  }, [isResearcher, loading, stats?.researchByCountry]);
 
   const researchByStatus = (stats?.research || []).reduce((acc, r) => {
     acc[r._id] = r.count;
@@ -336,6 +364,28 @@ export default function DashboardHome() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Researcher: Country statistics (approved research only) */}
+      {isResearcher && researchByCountry.length > 0 && (
+        <motion.div
+          className="content-card"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          style={{ marginTop: '1.5rem' }}
+        >
+          <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem' }}>Approved research by country</h2>
+          <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Counts reflect approved research entries only.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.5rem' }}>
+            {researchByCountry.map(({ country, count }) => (
+              <div key={country} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '0.9rem' }}>{country}</span>
+                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{count}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Notices & Messages - below stat cards for all users */}
       {(stats?.notices?.length > 0 || stats?.unreadMessages > 0) && (
