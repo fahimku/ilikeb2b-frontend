@@ -14,6 +14,21 @@ const STATUS_OPTIONS = [
 
 const isInquirer = (role) => ['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(role);
 
+/** Cooldown for same research: next inquiry allowed after createdAt + cooldownDays. Returns { text, canSubmitAgain }. */
+function getCooldownRemaining(inquiry) {
+  const days = inquiry.category?.cooldownDays ?? 30;
+  const end = new Date(inquiry.createdAt);
+  end.setDate(end.getDate() + days);
+  const now = new Date();
+  if (now >= end) return { text: 'Can submit again', canSubmitAgain: true };
+  const ms = end - now;
+  const d = Math.floor(ms / (24 * 60 * 60 * 1000));
+  const h = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  if (d > 0) return { text: `${d}d ${h}h left`, canSubmitAgain: false };
+  const m = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+  return { text: `${h}h ${m}m left`, canSubmitAgain: false };
+}
+
 export default function InquiriesPage() {
   const { user } = useAuth();
   const [res, setRes] = useState({ data: [], total: 0 });
@@ -84,8 +99,11 @@ export default function InquiriesPage() {
 
   useEffect(() => {
     if (canCreate && showCreate) {
-      api.get('/api/research', { params: { status: 'APPROVED', limit: 100 } })
-        .then(({ data }) => setApprovedResearch(data.data || []))
+      api.get('/api/research', { params: { status: 'APPROVED', availableForInquiry: '1', limit: 500 } })
+        .then(({ data }) => {
+          const list = data?.data || [];
+          setApprovedResearch(list.filter((r) => r.status === 'APPROVED'));
+        })
         .catch(() => setApprovedResearch([]));
     }
   }, [canCreate, showCreate]);
@@ -289,6 +307,7 @@ export default function InquiriesPage() {
                     <th>Category</th>
                     <th>Screenshots</th>
                     <th>Status</th>
+                    {canCreate && <th>Cooldown (resubmit)</th>}
                     {canCreate && <th>Actions</th>}
                   </tr>
                 </thead>
@@ -334,6 +353,14 @@ export default function InquiriesPage() {
                           <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }} title={r.disapprovalReason}>{r.disapprovalReason.slice(0, 30)}{r.disapprovalReason.length > 30 ? '…' : ''}</span>
                         )}
                       </td>
+                      {canCreate && (
+                        <td style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
+                          {(() => {
+                            const { text, canSubmitAgain } = getCooldownRemaining(r);
+                            return canSubmitAgain ? <span style={{ color: 'var(--success)' }}>{text}</span> : <span style={{ color: 'var(--text-muted)' }}>{text}</span>;
+                          })()}
+                        </td>
+                      )}
                       <td>
                         {canCreate && r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && (
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => openResubmit(r)}>Resubmit</button>
@@ -367,10 +394,10 @@ export default function InquiriesPage() {
       </motion.div>
 
       {/* Create Inquiry Dialog */}
-      <Dialog open={showCreate} onClose={() => setShowCreate(false)} title="Add Inquiry" subtitle="Submit an inquiry for an approved research record.">
+      <Dialog open={showCreate} onClose={() => setShowCreate(false)} title="Add Inquiry" subtitle="Submit an inquiry for research approved by the auditor that no inquirer has submitted yet. Only such research is listed.">
         <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label className="form-label">Select Research (Approved) *</label>
+            <label className="form-label">Select Research (approved, not yet submitted by any inquirer) *</label>
             <select
               className="select-input"
               value={createData.researchId}
