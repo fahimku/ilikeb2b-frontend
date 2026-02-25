@@ -71,8 +71,11 @@ export default function DashboardLayout() {
 
       <div className="layout-main">
         <header className="top-header">
-          <div className="top-header-left">
+          <div className="top-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span className="role-pill">{ROLE_LABELS[user?.role] || user?.role}</span>
+            {['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(user?.role) && user?.trustedInquirer && (
+              <span className="badge" style={{ background: 'var(--accent)', color: 'var(--bg)', fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}>Trusted</span>
+            )}
           </div>
           <div className="top-header-right">
             <button

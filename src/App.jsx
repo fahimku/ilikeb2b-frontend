@@ -7,6 +7,7 @@ import DashboardHome from './pages/DashboardHome';
 import CategoriesPage from './pages/CategoriesPage';
 import UsersPage from './pages/UsersPage';
 import ResearchPage from './pages/ResearchPage';
+import AssignResearchPage from './pages/AssignResearchPage';
 import InquiriesPage from './pages/InquiriesPage';
 import PaymentsPage from './pages/PaymentsPage';
 import NoticesPage from './pages/NoticesPage';
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="categories" element={<CategoriesPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="research" element={<ResearchPage />} />
+            <Route path="assign-research" element={<AssignResearchPage />} />
             <Route path="inquiries" element={<InquiriesPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="notices" element={<NoticesPage />} />

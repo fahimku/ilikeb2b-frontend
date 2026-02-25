@@ -127,6 +127,7 @@ export default function UsersPage() {
       category: u.category?._id || u.category || '',
       isActive: u.isActive !== false,
       unitPayment: u.unitPayment ?? '',
+      trustedInquirer: !!u.trustedInquirer,
     });
     setEditProfileImageFile(null);
     setEditDialogOpen(true);
@@ -190,6 +191,9 @@ export default function UsersPage() {
     fd.append('isActive', editValues.isActive);
     if (isSuperAdmin && editValues.unitPayment !== '' && editValues.unitPayment != null) {
       fd.append('unitPayment', editValues.unitPayment);
+    }
+    if ((isSuperAdmin || isCategoryAdmin) && ['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(editValues.role) && editValues.trustedInquirer !== undefined) {
+      fd.append('trustedInquirer', editValues.trustedInquirer ? '1' : '0');
     }
     if (editProfileImageFile) fd.append('profileImage', editProfileImageFile);
     api.put(`/api/users/${editUser._id}`, fd)
@@ -284,7 +288,14 @@ export default function UsersPage() {
                     </td>
                     <td>{u.name}</td>
                     <td>{u.email}</td>
-                    <td>{ROLE_LABELS[u.role] || u.role}</td>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        {ROLE_LABELS[u.role] || u.role}
+                        {['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(u.role) && u.trustedInquirer && (
+                          <span className="badge" style={{ background: 'var(--accent)', color: 'var(--bg)', fontSize: '0.7rem' }}>Trusted</span>
+                        )}
+                      </span>
+                    </td>
                     <td>{u.country || '—'}</td>
                     <td>{u.category?.name || '—'}</td>
                     <td>{u.unitPayment != null ? u.unitPayment : '—'}</td>
@@ -459,6 +470,13 @@ export default function UsersPage() {
               <div className="form-field">
                 <label>Unit Payment</label>
                 <input className="form-input" type="number" value={editValues.unitPayment} disabled />
+              </div>
+            )}
+            {(isSuperAdmin || isCategoryAdmin) && ['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(editValues.role) && (
+              <div className="form-field">
+                <label>
+                  <input type="checkbox" checked={editValues.trustedInquirer} onChange={(e) => setEditValues((v) => ({ ...v, trustedInquirer: e.target.checked }))} /> Trusted Inquirer (can submit inquiry without screenshot)
+                </label>
               </div>
             )}
             <div className="form-field">

@@ -12,6 +12,12 @@ const STATUS_OPTIONS = [
   { value: 'DISAPPROVED', label: 'Disapproved' },
 ];
 
+const getResearchTypeLabel = (r) => {
+  if (r.type === 'WEBSITE') return 'Website';
+  if (r.type === 'LINKEDIN') return 'LinkedIn';
+  return r.companyName ? 'Website' : 'LinkedIn';
+};
+
 const isInquirer = (role) => ['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(role);
 
 /** Cooldown for same research: next inquiry allowed after createdAt + cooldownDays. Returns { text, canSubmitAgain }. */
@@ -40,6 +46,9 @@ export default function InquiriesPage() {
   const [selected, setSelected] = useState(new Set());
   const [auditAction, setAuditAction] = useState(null);
   const [reason, setReason] = useState('');
+  const [disapprovalReasons, setDisapprovalReasons] = useState([]);
+  const [reasonSelect, setReasonSelect] = useState('');
+  const [reasonCustom, setReasonCustom] = useState('');
 
   // Create form
   const [showCreate, setShowCreate] = useState(false);
@@ -64,6 +73,8 @@ export default function InquiriesPage() {
   const [editInquiry, setEditInquiry] = useState(null);
   const [editInquiryStatus, setEditInquiryStatus] = useState('');
   const [editInquiryLoading, setEditInquiryLoading] = useState(false);
+  const [appealRejectItem, setAppealRejectItem] = useState(null);
+  const [appealRejectReason, setAppealRejectReason] = useState('');
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isCategoryAdmin = user?.role === 'CATEGORY_ADMIN';
@@ -75,10 +86,37 @@ export default function InquiriesPage() {
     if (isSuperAdmin) api.get('/api/categories').then(({ data }) => setCategories(data || [])).catch(() => {});
   }, [isSuperAdmin]);
 
+  const [listFilter, setListFilter] = useState('');
+
+  // Inquirer: view "My Inquiries" vs "Assigned to me" (research to inquire)
+  const [viewMode, setViewMode] = useState('inquiries');
+  const [assignedRes, setAssignedRes] = useState({ data: [], total: 0 });
+  const [assignedLoading, setAssignedLoading] = useState(false);
+  const [openIds, setOpenIds] = useState(new Set());
+  const [uploadingForResearchId, setUploadingForResearchId] = useState(null);
+  const [createOpenedFromAssigned, setCreateOpenedFromAssigned] = useState(false);
+  // Pending screenshots per research (researchId -> File[]) for Assigned to me flow
+  const [pendingScreenshotsByResearch, setPendingScreenshotsByResearch] = useState({});
+  // Which row is in "Upload screenshot" dialog: { researchId, type }
+  const [uploadScreenshotForResearch, setUploadScreenshotForResearch] = useState(null);
+  const [uploadScreenshotFiles, setUploadScreenshotFiles] = useState([]);
+
+  const fetchAssignedResearch = useCallback((signal) => {
+    setAssignedLoading(true);
+    api.get('/api/research', { params: { page, limit, myAssignments: '1' }, signal })
+      .then(({ data }) => setAssignedRes({ data: data.data || [], total: data.total ?? 0 }))
+      .catch((err) => {
+        if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
+        setError(err.response?.data?.message || 'Failed to load assigned research');
+      })
+      .finally(() => setAssignedLoading(false));
+  }, [page, limit]);
+
   const fetchInquiries = useCallback((signal) => {
     setLoading(true);
     const params = { page, limit };
     if (status) params.status = status;
+    if (listFilter) params.list = listFilter;
     if (country.trim()) params.country = country.trim();
     if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
     if (isSuperAdmin && search.trim()) params.search = search.trim();
@@ -89,13 +127,17 @@ export default function InquiriesPage() {
         setError(err.response?.data?.message || 'Failed to load');
       })
       .finally(() => setLoading(false));
-  }, [page, limit, status, country, categoryFilter, searchSubmitted, isSuperAdmin]);
+  }, [page, limit, status, listFilter, country, categoryFilter, searchSubmitted, isSuperAdmin]);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchInquiries(controller.signal);
+    if (canCreate && viewMode === 'assigned') {
+      fetchAssignedResearch(controller.signal);
+    } else {
+      fetchInquiries(controller.signal);
+    }
     return () => controller.abort();
-  }, [fetchInquiries]);
+  }, [canCreate, viewMode, fetchInquiries, fetchAssignedResearch]);
 
   useEffect(() => {
     if (canCreate && showCreate) {
@@ -115,6 +157,20 @@ export default function InquiriesPage() {
     }
   }, [canCreate, showCreate, isWebsiteInquirer, isLinkedInInquirer]);
 
+  useEffect(() => {
+    if (isAuditor) {
+      api.get('/api/settings/disapproval-reasons')
+        .then(({ data }) => setDisapprovalReasons(Array.isArray(data) ? data : []))
+        .catch(() => setDisapprovalReasons([]));
+    }
+  }, [isAuditor]);
+
+  const getDisapprovalReasonText = () => {
+    if (reasonSelect === 'other') return reasonCustom.trim();
+    const r = disapprovalReasons.find((x) => x._id === reasonSelect);
+    return r?.label?.trim() || reasonCustom.trim() || '';
+  };
+
   const toggleSelect = (id) => {
     setSelected((s) => {
       const next = new Set(s);
@@ -131,12 +187,15 @@ export default function InquiriesPage() {
   };
 
   const runAudit = () => {
-    if (!auditAction || (auditAction === 'DISAPPROVED' && !reason.trim())) return;
+    const reasonText = auditAction === 'DISAPPROVED' ? getDisapprovalReasonText() : '';
+    if (!auditAction || (auditAction === 'DISAPPROVED' && !reasonText)) return;
     const ids = [...selected];
     setSelected(new Set());
     setAuditAction(null);
     setReason('');
-    api.post('/api/audit/inquiry', { ids, action: auditAction, reason: reason.trim() || undefined })
+    setReasonSelect('');
+    setReasonCustom('');
+    api.post('/api/audit/inquiry', { ids, action: auditAction, reason: reasonText || undefined })
       .then(() => fetchInquiries())
       .catch((err) => setError(err.response?.data?.message || 'Audit failed'));
   };
@@ -146,18 +205,63 @@ export default function InquiriesPage() {
     setScreenshotFiles(files.filter((f) => f.size <= MAX_IMAGE_SIZE));
   };
 
+  const trustedInquirer = !!user?.trustedInquirer;
+
+  const handleUploadScreenshotDone = () => {
+    if (!uploadScreenshotForResearch || uploadScreenshotFiles.length === 0) return;
+    const { researchId } = uploadScreenshotForResearch;
+    setPendingScreenshotsByResearch((prev) => ({ ...prev, [researchId]: [...uploadScreenshotFiles] }));
+    setUploadScreenshotForResearch(null);
+    setUploadScreenshotFiles([]);
+  };
+
+  const handleSubmitInquiryForRow = async (r) => {
+    const researchId = r._id;
+    const type = (r.type === 'WEBSITE' || r.type === 'LINKEDIN')
+      ? r.type
+      : (r.companyName ? 'WEBSITE' : 'LINKEDIN');
+    const files = pendingScreenshotsByResearch[researchId];
+    const hasFiles = files && files.length > 0;
+    if (!hasFiles && !trustedInquirer) {
+      setError('Upload screenshot first, or ask Category Admin to mark you as Trusted Inquirer.');
+      return;
+    }
+    setUploadingForResearchId(researchId);
+    setError('');
+    const fd = new FormData();
+    fd.append('researchId', researchId);
+    fd.append('type', type);
+    if (hasFiles) files.forEach((f) => fd.append('screenshots', f));
+    try {
+      await api.post('/api/inquiry', fd);
+      setPendingScreenshotsByResearch((prev) => {
+        const next = { ...prev };
+        delete next[researchId];
+        return next;
+      });
+      fetchAssignedResearch();
+      fetchInquiries();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Submission failed');
+    } finally {
+      setUploadingForResearchId(null);
+    }
+  };
+
   const handleCreateSubmit = (e) => {
     e.preventDefault();
     if (!createData.researchId?.trim()) {
       setError('Please select a research record');
       return;
     }
-    if (!screenshotFiles.length) {
-      setError('At least one screenshot is required');
+    if (!screenshotFiles.length && !trustedInquirer) {
+      setError('At least one screenshot is required (or you must be marked as Trusted Inquirer by Category Admin)');
       return;
     }
+    const fromAssigned = createOpenedFromAssigned;
     setCreateLoading(true);
     setError('');
+    if (fromAssigned) setUploadingForResearchId(createData.researchId);
     const fd = new FormData();
     fd.append('researchId', createData.researchId);
     fd.append('type', createData.type);
@@ -167,15 +271,25 @@ export default function InquiriesPage() {
         setShowCreate(false);
         setCreateData({ researchId: '', type: isWebsiteInquirer ? 'WEBSITE' : 'LINKEDIN' });
         setScreenshotFiles([]);
+        setCreateOpenedFromAssigned(false);
+        if (fromAssigned) fetchAssignedResearch();
+        setUploadingForResearchId(null);
         fetchInquiries();
       })
       .catch((err) => setError(err.response?.data?.message || 'Submission failed'))
-      .finally(() => setCreateLoading(false));
+      .finally(() => {
+        setCreateLoading(false);
+        setUploadingForResearchId(null);
+      });
   };
 
   const handleResearchSelect = (researchId) => {
     const r = approvedResearch.find((x) => x._id === researchId);
-    const type = r ? (r.type === 'WEBSITE' || r.companyName ? 'WEBSITE' : 'LINKEDIN') : (isWebsiteInquirer ? 'WEBSITE' : 'LINKEDIN');
+    const type = r
+      ? ((r.type === 'WEBSITE' || r.type === 'LINKEDIN')
+        ? r.type
+        : (r.companyName ? 'WEBSITE' : 'LINKEDIN'))
+      : (isWebsiteInquirer ? 'WEBSITE' : 'LINKEDIN');
     setCreateData({ researchId: researchId || '', type });
   };
 
@@ -246,13 +360,62 @@ export default function InquiriesPage() {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
-          <select className="select-input" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
+          <select className="select-input" value={status} onChange={(e) => { setStatus(e.target.value); setListFilter(''); setPage(1); }}>
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value || 'all'} value={o.value}>{o.label}</option>
             ))}
           </select>
+          {canEditInquiry && (
+            <select className="select-input" value={listFilter} onChange={(e) => { setListFilter(e.target.value); setStatus(''); setPage(1); }} style={{ width: '160px' }}>
+              <option value="">Lists</option>
+              <option value="appealed">Appealed (review)</option>
+            </select>
+          )}
           {canCreate && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>+ New Inquiry</button>
+            <>
+              <span style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                <button type="button" className={`btn btn-sm ${viewMode === 'inquiries' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setViewMode('inquiries'); setOpenIds(new Set()); }}>My Inquiries</button>
+                <button type="button" className={`btn btn-sm ${viewMode === 'assigned' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => { setViewMode('assigned'); setOpenIds(new Set()); }}>Assigned to me</button>
+              </span>
+            </>
+          )}
+          {canCreate && viewMode === 'inquiries' && (
+            <>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpenIds((prev) => (prev.size === res.data.length ? new Set() : new Set(res.data.map((r) => r._id))))}>
+                {openIds.size === res.data.length && res.data.length > 0 ? 'Deselect all' : 'Select all on page'}
+              </button>
+              {openIds.size > 0 && (
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => {
+                  const urls = [];
+                  res.data.filter((r) => openIds.has(r._id)).forEach((r) => {
+                    const main = r.research?.companyLink || r.research?.linkedinLink;
+                    if (main) urls.push(main);
+                    const shots = r.screenshots?.length ? r.screenshots : (r.screenshot ? [r.screenshot] : []);
+                    shots.forEach((s) => urls.push(s));
+                  });
+                  urls.forEach((url, i) => setTimeout(() => window.open(url, '_blank'), i * 120));
+                }}>Open selected in tabs ({openIds.size})</button>
+              )}
+            </>
+          )}
+          {canCreate && viewMode === 'assigned' && (
+            <>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpenIds((prev) => (prev.size === assignedRes.data.length ? new Set() : new Set(assignedRes.data.map((r) => r._id))))}>
+                {openIds.size === assignedRes.data.length && assignedRes.data.length > 0 ? 'Deselect all' : 'Select all on page'}
+              </button>
+              {openIds.size > 0 && (
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => {
+                  const urls = [];
+                  assignedRes.data.filter((r) => openIds.has(r._id)).forEach((r) => {
+                    const main = r.companyLink || r.linkedinLink;
+                    if (main) urls.push(main);
+                    const shots = r.screenshots?.length ? r.screenshots : (r.screenshot ? [r.screenshot] : []);
+                    shots.forEach((s) => urls.push(s));
+                  });
+                  urls.forEach((url, i) => setTimeout(() => window.open(url, '_blank'), i * 120));
+                }}>Open selected in tabs ({openIds.size})</button>
+              )}
+            </>
           )}
           {isAuditor && (
             <>
@@ -271,26 +434,109 @@ export default function InquiriesPage() {
               {auditAction && (
                 <>
                   {auditAction === 'DISAPPROVED' && (
-                    <input
-                      className="text-input"
-                      placeholder="Disapproval reason (required)"
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      style={{ width: '220px' }}
-                    />
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                      <select
+                        className="select-input"
+                        value={reasonSelect}
+                        onChange={(e) => setReasonSelect(e.target.value)}
+                        style={{ minWidth: '180px' }}
+                      >
+                        <option value="">Select reason (required)</option>
+                        {disapprovalReasons.map((r) => (
+                          <option key={r._id} value={r._id}>{r.label}</option>
+                        ))}
+                        <option value="other">Other</option>
+                      </select>
+                      {reasonSelect === 'other' && (
+                        <input
+                          className="text-input"
+                          placeholder="Enter reason"
+                          value={reasonCustom}
+                          onChange={(e) => setReasonCustom(e.target.value)}
+                          style={{ width: '200px' }}
+                        />
+                      )}
+                    </div>
                   )}
-                  <button type="button" className="btn btn-primary btn-sm" onClick={runAudit} disabled={auditAction === 'DISAPPROVED' && !reason.trim()}>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={runAudit} disabled={auditAction === 'DISAPPROVED' && !getDisapprovalReasonText()}>
                     Confirm {auditAction === 'APPROVED' ? 'approve' : 'disapprove'}
                   </button>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setAuditAction(null); setReason(''); }}>Cancel</button>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setAuditAction(null); setReason(''); setReasonSelect(''); setReasonCustom(''); }}>Cancel</button>
                 </>
               )}
             </>
           )}
         </div>
 
-        {loading ? (
+        {(viewMode === 'assigned' && canCreate ? assignedLoading : loading) ? (
           <div className="dashboard-loading" style={{ padding: '2rem' }}><div className="auth-loading-spinner" /></div>
+        ) : canCreate && viewMode === 'assigned' ? (
+          <>
+            <div className="data-table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '40px' }}><input type="checkbox" checked={assignedRes.data.length > 0 && openIds.size === assignedRes.data.length} onChange={() => setOpenIds((prev) => (prev.size === assignedRes.data.length ? new Set() : new Set(assignedRes.data.map((r) => r._id))))} /></th>
+                    <th>Ref No</th>
+                    <th>Type</th>
+                    <th>Company / Person</th>
+                    <th>Link</th>
+                    <th>Country</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assignedRes.data.map((r) => (
+                    <tr key={r._id}>
+                      <td>
+                        <input type="checkbox" checked={openIds.has(r._id)} onChange={() => setOpenIds((prev) => { const next = new Set(prev); if (next.has(r._id)) next.delete(r._id); else next.add(r._id); return next; })} />
+                      </td>
+                      <td><strong>{r.referenceNo || '—'}</strong></td>
+                      <td>{getResearchTypeLabel(r)}</td>
+                      <td>{r.companyName || r.personName || '—'}</td>
+                      <td>
+                        {(r.companyLink || r.linkedinLink) ? (
+                          <a href={r.companyLink || r.linkedinLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>Open</a>
+                        ) : '—'}
+                      </td>
+                      <td>{r.country || '—'}</td>
+                      <td>
+                        {uploadingForResearchId === r._id ? (
+                          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Submitting…</span>
+                        ) : (
+                          <span style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
+                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => {
+                              setUploadScreenshotForResearch({ researchId: r._id, type: r.type === 'WEBSITE' || r.companyName ? 'WEBSITE' : 'LINKEDIN' });
+                              setUploadScreenshotFiles([]);
+                            }}>Upload screenshot</button>
+                            <button type="button" className="btn btn-sm btn-primary" onClick={() => handleSubmitInquiryForRow(r)} disabled={!pendingScreenshotsByResearch[r._id]?.length && !trustedInquirer} title={!pendingScreenshotsByResearch[r._id]?.length && !trustedInquirer ? 'Upload screenshot first or be marked as Trusted Inquirer' : ''}>Submit inquiry</button>
+                            {pendingScreenshotsByResearch[r._id]?.length > 0 && (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{pendingScreenshotsByResearch[r._id].length} image(s) ready</span>
+                            )}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="pagination-wrap">
+              <span className="pagination-info">
+                Showing {(page - 1) * limit + 1}–{Math.min(page * limit, assignedRes.total)} of {assignedRes.total}
+              </span>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <select className="select-input" value={limit} onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+                <button type="button" className="btn btn-sm btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
+                <span style={{ fontSize: '0.875rem' }}>Page {page}</span>
+                <button type="button" className="btn btn-sm btn-secondary" disabled={page * limit >= assignedRes.total} onClick={() => setPage((p) => p + 1)}>Next</button>
+              </div>
+            </div>
+          </>
         ) : (
           <>
             <div className="data-table-wrap">
@@ -298,6 +544,7 @@ export default function InquiriesPage() {
                 <thead>
                   <tr>
                     {isAuditor && <th style={{ width: '40px' }}><input type="checkbox" checked={pendingIds.length > 0 && selected.size === pendingIds.length} onChange={selectAll} /></th>}
+                    {canCreate && <th style={{ width: '40px' }}>Open</th>}
                     <th>Ref No</th>
                     <th>Type</th>
                     <th>Company / Person</th>
@@ -319,6 +566,11 @@ export default function InquiriesPage() {
                           {r.status === 'PENDING' && (
                             <input type="checkbox" checked={selected.has(r._id)} onChange={() => toggleSelect(r._id)} />
                           )}
+                        </td>
+                      )}
+                      {canCreate && (
+                        <td>
+                          <input type="checkbox" checked={openIds.has(r._id)} onChange={() => setOpenIds((prev) => { const next = new Set(prev); if (next.has(r._id)) next.delete(r._id); else next.add(r._id); return next; })} />
                         </td>
                       )}
                       <td><strong>{r.referenceNo || '—'}</strong></td>
@@ -362,10 +614,30 @@ export default function InquiriesPage() {
                         </td>
                       )}
                       <td>
-                        {canCreate && r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && (
+                        {canCreate && r.status === 'DISAPPROVED' && isOwn(r) && !r.resubmitted && !r.appealed && (
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => openResubmit(r)}>Resubmit</button>
                         )}
-                        {canEditInquiry && (
+                        {canCreate && r.status === 'DISAPPROVED' && isOwn(r) && !r.appealed && (
+                          <button type="button" className="btn btn-sm btn-secondary" style={{ marginLeft: '0.25rem' }} onClick={async () => {
+                            try {
+                              await api.post(`/api/inquiry/${r._id}/appeal`);
+                              fetchInquiries();
+                            } catch (err) { setError(err.response?.data?.message || 'Appeal failed'); }
+                          }}>Appeal</button>
+                        )}
+                        {canEditInquiry && listFilter === 'appealed' && r.appealed && !r.appealDecidedBy && (
+                          <span style={{ display: 'flex', gap: '0.25rem' }}>
+                            <button type="button" className="btn btn-sm btn-primary" onClick={async () => {
+                              try {
+                                await api.put(`/api/inquiry/${r._id}/appeal-decision`, { decision: 'APPROVED' });
+                                setAppealRejectItem(null);
+                                fetchInquiries();
+                              } catch (err) { setError(err.response?.data?.message || 'Failed'); }
+                            }}>Approve</button>
+                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => setAppealRejectItem(r)}>Reject</button>
+                          </span>
+                        )}
+                        {canEditInquiry && !listFilter && (
                           <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setEditInquiry(r); setEditInquiryStatus(r.status); }} style={{ marginLeft: '0.25rem' }}>Edit</button>
                         )}
                       </td>
@@ -393,17 +665,35 @@ export default function InquiriesPage() {
         )}
       </motion.div>
 
+      {/* Upload screenshot only (for Assigned to me row) */}
+      <Dialog open={!!uploadScreenshotForResearch} onClose={() => { setUploadScreenshotForResearch(null); setUploadScreenshotFiles([]); }} title="Upload screenshot" subtitle="Select image(s) for this research. Click Done to save. Then use Submit inquiry on the row. Trusted Inquirers can submit without screenshots.">
+        {uploadScreenshotForResearch && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label className="form-label">Screenshots (multiple allowed). Max 500KB per image.</label>
+              <input type="file" accept="image/*" multiple onChange={(e) => setUploadScreenshotFiles(Array.from(e.target.files || []).filter((f) => f.size <= MAX_IMAGE_SIZE))} />
+              {uploadScreenshotFiles.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{uploadScreenshotFiles.length} image(s) selected</span>}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setUploadScreenshotForResearch(null); setUploadScreenshotFiles([]); }}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={handleUploadScreenshotDone} disabled={uploadScreenshotFiles.length === 0}>Done</button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
       {/* Create Inquiry Dialog */}
-      <Dialog open={showCreate} onClose={() => setShowCreate(false)} title="Add Inquiry" subtitle="Submit an inquiry for research approved by the auditor that no inquirer has submitted yet. Only such research is listed.">
+      <Dialog open={showCreate} onClose={() => { setShowCreate(false); setCreateOpenedFromAssigned(false); }} title="Add Inquiry" subtitle={createOpenedFromAssigned ? 'Upload screenshot(s) and submit. The list will update without refreshing the page.' : 'Submit an inquiry for research approved by the auditor that no inquirer has submitted yet. Only such research is listed.'}>
         <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label className="form-label">Select Research (approved, not yet submitted by any inquirer) *</label>
+            <label className="form-label">Select Research (approved, assigned to you) *</label>
             <select
               className="select-input"
               value={createData.researchId}
               onChange={(e) => handleResearchSelect(e.target.value)}
               style={{ width: '100%' }}
               required
+              disabled={createOpenedFromAssigned}
             >
               <option value="">— Select —</option>
               {approvedResearch.map((r) => (
@@ -430,13 +720,13 @@ export default function InquiriesPage() {
             ) : null;
           })()}
           <div>
-            <label className="form-label">Screenshots (required, multiple allowed). Max 500KB per image.</label>
+            <label className="form-label">Screenshots {trustedInquirer ? '(optional for Trusted Inquirers)' : '(required)'}, multiple allowed. Max 500KB per image.</label>
             <input type="file" accept="image/*" multiple onChange={handleCreateScreenshotsChange} />
             {screenshotFiles.length > 0 && <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{screenshotFiles.length} image(s) selected</span>}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={createLoading || !screenshotFiles.length}>{createLoading ? 'Submitting…' : 'Submit'}</button>
+            <button type="submit" className="btn btn-primary" disabled={createLoading || (!screenshotFiles.length && !trustedInquirer)}>{createLoading ? 'Submitting…' : 'Submit inquiry'}</button>
           </div>
         </form>
       </Dialog>
@@ -454,6 +744,32 @@ export default function InquiriesPage() {
           }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div><label className="form-label">Status</label><select className="select-input" value={editInquiryStatus} onChange={(e) => setEditInquiryStatus(e.target.value)} style={{ width: '100%' }}><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="DISAPPROVED">Disapproved</option></select></div>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}><button type="button" className="btn btn-secondary" onClick={() => setEditInquiry(null)}>Cancel</button><button type="submit" className="btn btn-primary" disabled={editInquiryLoading}>{editInquiryLoading ? 'Updating…' : 'Update'}</button></div>
+          </form>
+        )}
+      </Dialog>
+
+      {/* Appeal Reject Dialog */}
+      <Dialog open={!!appealRejectItem} onClose={() => { setAppealRejectItem(null); setAppealRejectReason(''); }} title="Reject Appeal" subtitle="Enter rejection reason. Will be sent via internal message.">
+        {appealRejectItem && (
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const reason = appealRejectReason?.trim() || '';
+            if (!reason) return;
+            try {
+              await api.put(`/api/inquiry/${appealRejectItem._id}/appeal-decision`, { decision: 'DISAPPROVED', rejectionReason: reason });
+              setAppealRejectItem(null);
+              setAppealRejectReason('');
+              fetchInquiries();
+            } catch (err) { setError(err.response?.data?.message || 'Failed'); }
+          }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label className="form-label">Rejection reason *</label>
+              <textarea className="text-input" value={appealRejectReason} onChange={(e) => setAppealRejectReason(e.target.value)} rows={3} placeholder="Why does this not meet criteria?" required style={{ width: '100%' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setAppealRejectItem(null); setAppealRejectReason(''); }}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={!appealRejectReason.trim()}>Reject appeal</button>
+            </div>
           </form>
         )}
       </Dialog>

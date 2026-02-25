@@ -20,7 +20,7 @@ export const SIDEBAR_NAV = [
     path: '/dashboard/categories',
     label: 'Categories',
     icon: 'folder',
-    roles: ['SUPER_ADMIN', 'CATEGORY_ADMIN'],
+    roles: ['SUPER_ADMIN'],
   },
   {
     path: '/dashboard/users',
@@ -37,6 +37,12 @@ export const SIDEBAR_NAV = [
       'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
       'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
     ],
+  },
+  {
+    path: '/dashboard/assign-research',
+    label: 'Assign research',
+    icon: 'link',
+    roles: ['SUPER_ADMIN', 'CATEGORY_ADMIN'],
   },
   {
     path: '/dashboard/inquiries',

@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import { ROLE_LABELS } from '../config/sidebarNav';
+
+const PAYMENT_CHANNELS = [
+  { value: '', label: 'Select channel' },
+  { value: 'BANK', label: 'Bank transfer' },
+  { value: 'PAYPAL', label: 'PayPal' },
+  { value: 'STRIPE', label: 'Stripe' },
+  { value: 'WISE', label: 'Wise' },
+  { value: 'OTHER', label: 'Other' },
+];
 
 export default function PaymentsPage() {
   const { user } = useAuth();
@@ -11,11 +22,18 @@ export default function PaymentsPage() {
   const [generating, setGenerating] = useState(false);
   const [payingId, setPayingId] = useState(null);
   const [payAmount, setPayAmount] = useState('');
+  const [payChannel, setPayChannel] = useState('');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [categories, setCategories] = useState([]);
+  const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [workStatusFilter, setWorkStatusFilter] = useState('');
+  const [channelFilter, setChannelFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const canMarkPaid = user?.role === 'SUPER_ADMIN';
-  const canGenerate = ['SUPER_ADMIN', 'CATEGORY_ADMIN'].includes(user?.role);
+  const canGenerate = user?.role === 'CATEGORY_ADMIN';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const fetchPayments = () => {
@@ -23,6 +41,12 @@ export default function PaymentsPage() {
     const params = {};
     if (isSuperAdmin && categoryFilter) params.category = categoryFilter;
     if (search.trim()) params.search = search.trim();
+    if (roleFilter) params.role = roleFilter;
+    if (statusFilter) params.status = statusFilter;
+    if (workStatusFilter) params.workStatus = workStatusFilter;
+    if (channelFilter) params.channel = channelFilter;
+    if (dateFrom) params.dateFrom = dateFrom;
+    if (dateTo) params.dateTo = dateTo;
     api.get('/api/payments', { params })
       .then(({ data }) => setList(data))
       .catch((err) => setError(err.response?.data?.message || 'Failed to load'))
@@ -37,7 +61,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     fetchPayments();
-  }, [categoryFilter, search]);
+  }, [categoryFilter, search, roleFilter, statusFilter, workStatusFilter, channelFilter, dateFrom, dateTo]);
 
   const handleGenerate = () => {
     setGenerating(true);
@@ -51,15 +75,37 @@ export default function PaymentsPage() {
     const amount = parseFloat(payAmount);
     if (Number.isNaN(amount) || amount < 0) return;
     setPayingId(id);
-    api.put(`/api/payments/${id}/pay`, { paidAmount: amount })
+    const body = { paidAmount: amount };
+    if (payChannel) body.paymentChannel = payChannel;
+    api.put(`/api/payments/${id}/pay`, body)
       .then(() => {
         setPayAmount('');
+        setPayChannel('');
         setPayingId(null);
         fetchPayments();
       })
       .catch((err) => setError(err.response?.data?.message || 'Update failed'))
       .finally(() => setPayingId(null));
   };
+
+  const channelLabel = (v) => PAYMENT_CHANNELS.find((c) => c.value === v)?.label || v || '—';
+
+  const chartByStatus = list.length > 0
+    ? [
+        { name: 'Paid', count: list.filter((p) => (p.status || '').toUpperCase() === 'PAID').length },
+        { name: 'Unpaid', count: list.filter((p) => (p.status || '').toUpperCase() === 'UNPAID').length },
+        { name: 'Partial', count: list.filter((p) => (p.status || '').toUpperCase() === 'PARTIAL').length },
+      ]
+    : [];
+  const chartByRole = list.length > 0
+    ? Object.entries(
+        list.reduce((acc, p) => {
+          const r = p.role || 'Other';
+          acc[r] = (acc[r] || 0) + 1;
+          return acc;
+        }, {})
+      ).map(([role, count]) => ({ name: ROLE_LABELS[role] || role, count }))
+    : [];
 
   const formatDate = (d) => {
     if (!d) return '—';
@@ -69,6 +115,8 @@ export default function PaymentsPage() {
   const emptyMsg = canGenerate
     ? 'No payment records. Payments are created automatically when research/inquiry is approved. Use "Generate payments" to backfill for existing approved work.'
     : 'No payment records yet. Payments are created when your approved research or inquiry work is audited.';
+  const isCategoryAdmin = user?.role === 'CATEGORY_ADMIN';
+  const showFilters = isSuperAdmin || isCategoryAdmin;
 
   // My Payments summary (for non-admin users who see their own payments)
   const showMyPaymentsSummary = !canMarkPaid && !canGenerate;
@@ -117,6 +165,34 @@ export default function PaymentsPage() {
         </motion.div>
       )}
 
+      {list.length > 0 && !loading && (chartByStatus.some((d) => d.count > 0) || chartByRole.length > 0) && (
+        <motion.div className="content-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ marginBottom: '1rem' }}>
+          <h2 style={{ margin: '0 0 0.75rem', fontSize: '0.95rem', color: 'var(--text-muted)' }}>Payment overview</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1rem', minHeight: '200px' }}>
+            {chartByStatus.some((d) => d.count > 0) && (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={chartByStatus} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="var(--text-muted)" allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }} />
+                  <Bar dataKey="count" fill="var(--accent)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+            {chartByRole.length > 0 && (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={chartByRole} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} layout="vertical">
+                  <XAxis type="number" tick={{ fontSize: 11 }} stroke="var(--text-muted)" allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} stroke="var(--text-muted)" width={100} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }} />
+                  <Bar dataKey="count" fill="var(--accent)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </motion.div>
+      )}
+
       <motion.div className="content-card" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <h2 style={{ margin: 0, fontSize: '1.1rem' }}>Payment Records</h2>
@@ -144,6 +220,37 @@ export default function PaymentsPage() {
           </div>
         </div>
 
+        {showFilters && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem', padding: '0.75rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filters:</span>
+            <select className="select-input" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} style={{ minWidth: '140px' }}>
+              <option value="">All roles</option>
+              {Object.entries(ROLE_LABELS).map(([role, label]) => (
+                <option key={role} value={role}>{label}</option>
+              ))}
+            </select>
+            <select className="select-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ minWidth: '110px' }}>
+              <option value="">All status</option>
+              <option value="PAID">Paid</option>
+              <option value="UNPAID">Unpaid</option>
+              <option value="PARTIAL">Partial</option>
+            </select>
+            <select className="select-input" value={workStatusFilter} onChange={(e) => setWorkStatusFilter(e.target.value)} style={{ minWidth: '120px' }}>
+              <option value="">Work status</option>
+              <option value="APPROVED">Approved</option>
+              <option value="PENDING">Pending</option>
+            </select>
+            <select className="select-input" value={channelFilter} onChange={(e) => setChannelFilter(e.target.value)} style={{ minWidth: '130px' }}>
+              <option value="">All channels</option>
+              {PAYMENT_CHANNELS.filter((c) => c.value).map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+            <input type="date" className="text-input" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={{ width: '140px' }} placeholder="From" />
+            <input type="date" className="text-input" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={{ width: '140px' }} placeholder="To" />
+          </div>
+        )}
+
         {loading ? (
           <div className="dashboard-loading" style={{ minHeight: '120px', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
             <div className="auth-loading-spinner" />
@@ -164,6 +271,7 @@ export default function PaymentsPage() {
                   <th>Qty</th>
                   <th>Total</th>
                   <th>Status</th>
+                  <th>Channel</th>
                   <th>Record date</th>
                   <th>Paid date</th>
                   {canMarkPaid && <th>Action</th>}
@@ -190,12 +298,13 @@ export default function PaymentsPage() {
                     <td>{p.quantity ?? p.approvedCount ?? 1}</td>
                     <td>${(p.totalAmount ?? 0).toFixed(2)}</td>
                     <td><span className={`badge badge-${(p.status || 'unpaid').toLowerCase()}`}>{p.status || 'UNPAID'}</span></td>
+                    <td><span style={{ fontSize: '0.85rem' }}>{channelLabel(p.paymentChannel)}</span></td>
                     <td>{formatDate(p.createdAt)}</td>
                     <td>{formatDate(p.paymentDate)}</td>
                     {canMarkPaid && (
                       <td>
                         {p.status !== 'PAID' && (
-                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                             <input
                               type="number"
                               className="text-input"
@@ -203,8 +312,19 @@ export default function PaymentsPage() {
                               value={payingId === p._id ? payAmount : ''}
                               onChange={(e) => setPayAmount(e.target.value)}
                               onFocus={() => { setPayingId(p._id); setPayAmount(p.totalAmount?.toString() ?? ''); }}
-                              style={{ width: '90px' }}
+                              style={{ width: '80px' }}
                             />
+                            <select
+                              className="select-input"
+                              value={payingId === p._id ? payChannel : ''}
+                              onChange={(e) => setPayChannel(e.target.value)}
+                              onFocus={() => setPayingId(p._id)}
+                              style={{ width: '120px' }}
+                            >
+                              {PAYMENT_CHANNELS.map((c) => (
+                                <option key={c.value || 'any'} value={c.value}>{c.label}</option>
+                              ))}
+                            </select>
                             <button
                               type="button"
                               className="btn btn-sm btn-primary"

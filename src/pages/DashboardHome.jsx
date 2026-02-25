@@ -1,25 +1,29 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
 import { ROLE_LABELS } from '../config/sidebarNav';
 
-function StatCard({ title, value, sub, delay, icon }) {
+const CHART_COLORS = ['#0ea5e9', '#22c55e', '#ef4444', '#f59e0b', '#8b5cf6'];
+
+function MetricCard({ title, value, sub, delay, icon }) {
   return (
     <motion.div
-      className="stat-card"
-      initial={{ opacity: 0, y: 20 }}
+      className="dashboard-metric-card"
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: -4, transition: { duration: 0.2 } }}
+      transition={{ delay, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -2, transition: { duration: 0.2 } }}
     >
-      {icon && <span className="stat-icon">{icon}</span>}
-      <div className="stat-content">
-        <span className="stat-value">{value}</span>
-        <span className="stat-title">{title}</span>
-        {sub != null && <span className="stat-sub">{sub}</span>}
-      </div>
+      {icon && <div className="dashboard-metric-icon">{icon}</div>}
+      <div className="dashboard-metric-value">{value}</div>
+      <div className="dashboard-metric-title">{title}</div>
+      {sub != null && <div className="dashboard-metric-sub">{sub}</div>}
     </motion.div>
   );
 }
@@ -95,6 +99,19 @@ export default function DashboardHome() {
     return acc;
   }, {});
 
+  // researchByType: { type, status, count }[]
+  const researchByTypeMap = (stats?.researchByType || []).reduce((acc, r) => {
+    if (!acc[r.type]) acc[r.type] = {};
+    acc[r.type][r.status] = r.count;
+    return acc;
+  }, {});
+  // inquiryByType: { type, status, count }[]
+  const inquiryByTypeMap = (stats?.inquiryByType || []).reduce((acc, r) => {
+    if (!acc[r.type]) acc[r.type] = {};
+    acc[r.type][r.status] = r.count;
+    return acc;
+  }, {});
+
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -103,30 +120,30 @@ export default function DashboardHome() {
   });
 
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h1 className="page-title">Welcome back, {user?.name || 'User'}!</h1>
-            <p className="page-subtitle">{today}</p>
-          </div>
-          {isSuperAdmin && (
-            <select className="select-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ minWidth: '180px' }}>
-              <option value="">All categories</option>
-              {categories.map((c) => (
-                <option key={c._id} value={c._id}>{c.name}</option>
-              ))}
-            </select>
-          )}
+    <motion.div
+      className="dashboard-home"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Hero: welcome + date + category filter */}
+      <div className="dashboard-hero">
+        <div className="dashboard-hero-left">
+          <h1>Welcome back, {user?.name || 'User'}!</h1>
+          <p>{today}</p>
         </div>
-      </motion.div>
+        {isSuperAdmin && (
+          <select className="select-input" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+            <option value="">All categories</option>
+            {categories.map((c) => (
+              <option key={c._id} value={c._id}>{c.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
 
       {loading && (
-        <div className="dashboard-loading" style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', padding: '3rem' }}>
+        <div className="dashboard-loading" style={{ minHeight: '200px' }}>
           <div className="auth-loading-spinner" />
           <span>Loading dashboard...</span>
         </div>
@@ -138,282 +155,347 @@ export default function DashboardHome() {
         </motion.div>
       )}
 
-      {/* Super Admin: Unit prices, totals by role, paid/left, top workers */}
+      {/* Super Admin: Payment Overview */}
       {!loading && stats?.superAdminPayment && (
-        <motion.div
-          className="content-card"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.02 }}
-          style={{ marginBottom: '1.5rem' }}
-        >
-          <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem' }}>Payment Overview</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Unit Price by Role</span>
-              <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
+          <h2 className="dashboard-section-title">Payment Overview</h2>
+          <div className="dashboard-section-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: '1.25rem' }}>
+            <div className="dashboard-kvp" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <span className="dashboard-kvp-label">Unit price by role</span>
+              <div style={{ fontSize: '0.9rem' }}>
                 {(stats.superAdminPayment.unitPricesByRole || []).map((u) => (
-                  <div key={u._id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span>{ROLE_LABELS[u._id] || u._id}</span>
-                    <span>{(u.unitPrices || []).map((p) => `$${Number(p).toFixed(2)}`).join(', ') || '—'}</span>
+                  <div key={u._id} className="dashboard-kvp">
+                    <span className="dashboard-kvp-label">{ROLE_LABELS[u._id] || u._id}</span>
+                    <span className="dashboard-kvp-value">{(u.unitPrices || []).map((p) => `$${Number(p).toFixed(2)}`).join(', ') || '—'}</span>
                   </div>
                 ))}
                 {(!stats.superAdminPayment.unitPricesByRole || stats.superAdminPayment.unitPricesByRole.length === 0) && (
-                  <span style={{ color: 'var(--text-muted)' }}>—</span>
+                  <span className="dashboard-kvp-value" style={{ color: 'var(--text-muted)' }}>—</span>
                 )}
               </div>
             </div>
-            <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total by Role</span>
-              <div style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+            <div className="dashboard-kvp" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <span className="dashboard-kvp-label">Total by role</span>
+              <div style={{ fontSize: '0.9rem' }}>
                 {(stats.superAdminPayment.totalAmountByRole || []).map((r) => (
-                  <div key={r._id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
-                    <span>{r._id || '—'}</span>
-                    <span>${(r.total || 0).toFixed(2)}</span>
+                  <div key={r._id} className="dashboard-kvp">
+                    <span className="dashboard-kvp-label">{r._id || '—'}</span>
+                    <span className="dashboard-kvp-value">${(r.total || 0).toFixed(2)}</span>
                   </div>
                 ))}
                 {(!stats.superAdminPayment.totalAmountByRole || stats.superAdminPayment.totalAmountByRole.length === 0) && (
-                  <span style={{ color: 'var(--text-muted)' }}>—</span>
+                  <span className="dashboard-kvp-value" style={{ color: 'var(--text-muted)' }}>—</span>
                 )}
               </div>
             </div>
-            <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Payment Paid</span>
-              <div style={{ marginTop: '0.5rem', fontSize: '1.25rem', fontWeight: 600 }}>${(stats.superAdminPayment.paymentPaid ?? 0).toFixed(2)}</div>
+            <div className="dashboard-kvp" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span className="dashboard-kvp-label">Payment paid</span>
+              <span className="dashboard-kvp-value" style={{ fontSize: '1.25rem' }}>${(stats.superAdminPayment.paymentPaid ?? 0).toFixed(2)}</span>
             </div>
-            <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Payment Left</span>
-              <div style={{ marginTop: '0.5rem', fontSize: '1.25rem', fontWeight: 600 }}>${(stats.superAdminPayment.paymentLeft ?? 0).toFixed(2)}</div>
+            <div className="dashboard-kvp" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+              <span className="dashboard-kvp-label">Payment left</span>
+              <span className="dashboard-kvp-value" style={{ fontSize: '1.25rem' }}>${(stats.superAdminPayment.paymentLeft ?? 0).toFixed(2)}</span>
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-            <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Top 3 Researchers</span>
-              <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem', fontSize: '0.9rem' }}>
-                {(stats.superAdminPayment.topResearchers || []).map((w, i) => (
-                  <li key={i}>{w.name}: ${(w.total || 0).toFixed(2)} ({w.count} approved)</li>
-                ))}
-                {(!stats.superAdminPayment.topResearchers || stats.superAdminPayment.topResearchers.length === 0) && (
-                  <li style={{ color: 'var(--text-muted)' }}>—</li>
-                )}
-              </ul>
+          <div className="dashboard-section-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            <div>
+              <span className="dashboard-kvp-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Top 3 researchers</span>
+              {(stats.superAdminPayment.topResearchers || []).length > 0 ? (
+                (stats.superAdminPayment.topResearchers || []).map((w, i) => (
+                  <div key={i} className="dashboard-leader-item">
+                    <span>{w.name}</span>
+                    <span className="dashboard-kvp-value">${(w.total || 0).toFixed(2)} ({w.count})</span>
+                  </div>
+                ))
+              ) : (
+                <p className="dashboard-empty-hint">—</p>
+              )}
             </div>
-            <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Top 3 Inquirers</span>
-              <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem', fontSize: '0.9rem' }}>
-                {(stats.superAdminPayment.topInquirers || []).map((w, i) => (
-                  <li key={i}>{w.name}: ${(w.total || 0).toFixed(2)} ({w.count} approved)</li>
-                ))}
-                {(!stats.superAdminPayment.topInquirers || stats.superAdminPayment.topInquirers.length === 0) && (
-                  <li style={{ color: 'var(--text-muted)' }}>—</li>
-                )}
-              </ul>
+            <div>
+              <span className="dashboard-kvp-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Top 3 inquirers</span>
+              {(stats.superAdminPayment.topInquirers || []).length > 0 ? (
+                (stats.superAdminPayment.topInquirers || []).map((w, i) => (
+                  <div key={i} className="dashboard-leader-item">
+                    <span>{w.name}</span>
+                    <span className="dashboard-kvp-value">${(w.total || 0).toFixed(2)} ({w.count})</span>
+                  </div>
+                ))
+              ) : (
+                <p className="dashboard-empty-hint">—</p>
+              )}
             </div>
           </div>
         </motion.div>
       )}
 
+      {/* Super Admin: Users by role */}
+      {!loading && user?.role === 'SUPER_ADMIN' && (stats?.usersByRole?.length > 0) && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
+          <h2 className="dashboard-section-title">Users by role</h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+            {stats.usersByRole.map(({ role, count }) => (
+              <span key={role} className="dashboard-pill">
+                {ROLE_LABELS[role] || role}: <strong>{count}</strong>
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Key metrics grid */}
       <AnimatePresence>
         {!loading && stats && (
           <motion.div
-            className="stats-grid"
+            className="dashboard-metrics"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Super Admin: global stats */}
             {user?.role === 'SUPER_ADMIN' && (
               <>
-                <StatCard
-                  title="Total users"
-                  value={stats.users ?? 0}
-                  delay={0.05}
-                  icon="👥"
-                />
-                <StatCard
-                  title="Research"
-                  value={researchByStatus.APPROVED ?? 0}
-                  sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.1}
-                  icon="🔍"
-                />
-                <StatCard
-                  title="Inquiries"
-                  value={inquiryByStatus.APPROVED ?? 0}
-                  sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.15}
-                  icon="✉️"
-                />
-                <StatCard
-                  title="Payments"
-                  value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`}
-                  sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`}
-                  delay={0.2}
-                  icon="💰"
-                />
+                <MetricCard title="Categories" value={stats.categoryCount ?? 0} delay={0.05} icon="📁" />
+                <MetricCard title="Total users" value={stats.users ?? 0} delay={0.08} icon="👥" />
+                <MetricCard title="Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
+                <MetricCard title="Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
+                <MetricCard title="Payments" value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`} sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`} delay={0.2} icon="💰" />
               </>
             )}
-            {/* Category Admin: category-scoped stats */}
             {user?.role === 'CATEGORY_ADMIN' && (
               <>
-                <StatCard
-                  title="Category users"
-                  value={stats.users ?? 0}
-                  delay={0.05}
-                  icon="👥"
-                />
-                <StatCard
-                  title="Category Research"
-                  value={researchByStatus.APPROVED ?? 0}
-                  sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.1}
-                  icon="🔍"
-                />
-                <StatCard
-                  title="Category Inquiries"
-                  value={inquiryByStatus.APPROVED ?? 0}
-                  sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.15}
-                  icon="✉️"
-                />
-                <StatCard
-                  title="Category Payments"
-                  value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`}
-                  sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`}
-                  delay={0.2}
-                  icon="💰"
-                />
+                <MetricCard title="Category users" value={stats.users ?? 0} delay={0.05} icon="👥" />
+                <MetricCard title="Category Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
+                <MetricCard title="Category Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
+                <MetricCard title="Category Payments" value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`} sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`} delay={0.2} icon="💰" />
               </>
             )}
-            {/* Researcher: My Research + My Payments */}
             {['WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER'].includes(user?.role) && (
               <>
-                <StatCard
-                  title="My Research"
-                  value={researchByStatus.APPROVED ?? 0}
-                  sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.05}
-                  icon="🔍"
-                />
-                <StatCard
-                  title="My Payments"
-                  value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`}
-                  sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`}
-                  delay={0.1}
-                  icon="💰"
-                />
+                <MetricCard title="My Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="🔍" />
+                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
               </>
             )}
-            {/* Inquirer: My Inquiries + My Payments */}
             {['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(user?.role) && (
               <>
-                <StatCard
-                  title="My Inquiries"
-                  value={inquiryByStatus.APPROVED ?? 0}
-                  sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.05}
-                  icon="✉️"
-                />
-                <StatCard
-                  title="My Payments"
-                  value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`}
-                  sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`}
-                  delay={0.1}
-                  icon="💰"
-                />
+                <MetricCard title="Assigned to you" value={stats?.distributedCount ?? 0} sub="Research assigned, not yet inquired" delay={0.05} icon="📋" />
+                <MetricCard title="My Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.08} icon="✉️" />
+                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
               </>
             )}
-            {/* Auditors: Pending to Audit + My Payments */}
             {['WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR'].includes(user?.role) && (
               <>
-                <StatCard
-                  title="Pending Research to Audit"
-                  value={researchByStatus.PENDING ?? 0}
-                  sub={`Approved: ${researchByStatus.APPROVED ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.05}
-                  icon="🔍"
-                />
-                <StatCard
-                  title="My Payments"
-                  value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`}
-                  sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`}
-                  delay={0.1}
-                  icon="💰"
-                />
+                <MetricCard title="Pending Research to Audit" value={researchByStatus.PENDING ?? 0} sub={`Approved: ${researchByStatus.APPROVED ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="🔍" />
+                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
               </>
             )}
             {['WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR'].includes(user?.role) && (
               <>
-                <StatCard
-                  title="Pending Inquiries to Audit"
-                  value={inquiryByStatus.PENDING ?? 0}
-                  sub={`Approved: ${inquiryByStatus.APPROVED ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.05}
-                  icon="✉️"
-                />
-                <StatCard
-                  title="My Payments"
-                  value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`}
-                  sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`}
-                  delay={0.1}
-                  icon="💰"
-                />
+                <MetricCard title="Pending Inquiries to Audit" value={inquiryByStatus.PENDING ?? 0} sub={`Approved: ${inquiryByStatus.APPROVED ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="✉️" />
+                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
               </>
             )}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Researcher: Country statistics (approved research only) */}
-      {isResearcher && researchByCountry.length > 0 && (
+      {/* Data visualization — for roles with full stats */}
+      {!loading && stats && (user?.role === 'SUPER_ADMIN' || user?.role === 'CATEGORY_ADMIN') && (
         <motion.div
-          className="content-card"
+          className="dashboard-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          style={{ marginTop: '1.5rem' }}
+          transition={{ delay: 0.18 }}
         >
-          <h2 style={{ margin: '0 0 1rem', fontSize: '1.1rem' }}>Approved research by country</h2>
-          <p style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', color: 'var(--text-muted)' }}>Counts reflect approved research entries only.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.5rem' }}>
-            {researchByCountry.map(({ country, count }) => (
-              <div key={country} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '0.9rem' }}>{country}</span>
-                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{count}</span>
+          <h2 className="dashboard-section-title">Data Overview</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginTop: '0.5rem' }}>
+            <div style={{ minHeight: '240px' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Research by status</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart
+                  data={[
+                    { name: 'Approved', count: researchByStatus.APPROVED ?? 0, fill: CHART_COLORS[1] },
+                    { name: 'Pending', count: researchByStatus.PENDING ?? 0, fill: CHART_COLORS[2] },
+                    { name: 'Rejected', count: researchByStatus.DISAPPROVED ?? 0, fill: CHART_COLORS[3] },
+                  ]}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="var(--text-muted)" allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ minHeight: '240px' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Inquiries by status</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart
+                  data={[
+                    { name: 'Approved', count: inquiryByStatus.APPROVED ?? 0, fill: CHART_COLORS[1] },
+                    { name: 'Pending', count: inquiryByStatus.PENDING ?? 0, fill: CHART_COLORS[2] },
+                    { name: 'Rejected', count: inquiryByStatus.DISAPPROVED ?? 0, fill: CHART_COLORS[3] },
+                  ]}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                >
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="var(--text-muted)" />
+                  <YAxis tick={{ fontSize: 11 }} stroke="var(--text-muted)" allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ minHeight: '240px' }}>
+              <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Payments</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Paid', value: paymentByStatus.PAID ?? 0, color: CHART_COLORS[1] },
+                      { name: 'Unpaid', value: paymentByStatus.UNPAID ?? 0, color: CHART_COLORS[2] },
+                      { name: 'Partial', value: paymentByStatus.PARTIAL ?? 0, color: CHART_COLORS[3] },
+                    ].filter((d) => d.value > 0)}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, value }) => value ? `${name}: ${value}` : null}
+                  >
+                    {[
+                      { name: 'Paid', value: paymentByStatus.PAID ?? 0 },
+                      { name: 'Unpaid', value: paymentByStatus.UNPAID ?? 0 },
+                      { name: 'Partial', value: paymentByStatus.PARTIAL ?? 0 },
+                    ]
+                      .filter((d) => d.value > 0)
+                      .map((entry, index) => (
+                        <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                  </Pie>
+                  <Tooltip formatter={(v) => [`$${Number(v).toFixed(0)}`, 'Amount']} contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Researcher: Scholarship */}
+      {!loading && isResearcher && (stats?.topWorkersByType?.topResearchers?.length > 0) && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+          <h2 className="dashboard-section-title">Scholarship — Top researchers this month</h2>
+          <div className="dashboard-section-grid">
+            {stats.topWorkersByType.topResearchers.map((w, i) => (
+              <div key={i} className="dashboard-leader-item">
+                <span>{w.name}</span>
+                <span className="dashboard-kvp-value">${(w.total || 0).toFixed(2)} ({w.count} approved)</span>
               </div>
             ))}
           </div>
         </motion.div>
       )}
 
-      {/* Notices & Messages - below stat cards for all users */}
+      {/* Inquirer: Scholarship */}
+      {!loading && ['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(user?.role) && (stats?.topWorkersByType?.topInquirers?.length > 0) && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+          <h2 className="dashboard-section-title">Scholarship — Top inquirers this month</h2>
+          <div className="dashboard-section-grid">
+            {stats.topWorkersByType.topInquirers.map((w, i) => (
+              <div key={i} className="dashboard-leader-item">
+                <span>{w.name}</span>
+                <span className="dashboard-kvp-value">${(w.total || 0).toFixed(2)} ({w.count} approved)</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Researcher: Approved research by country */}
+      {isResearcher && researchByCountry.length > 0 && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <h2 className="dashboard-section-title">Approved research by country</h2>
+          <p className="dashboard-metric-sub" style={{ marginBottom: '1rem' }}>Counts reflect approved research entries only.</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.5rem' }}>
+            {researchByCountry.map(({ country, count }) => (
+              <div key={country} className="dashboard-country-chip">
+                <span>{country}</span>
+                <span>{count}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Notices & Messages */}
       {(stats?.notices?.length > 0 || stats?.unreadMessages > 0) && (
-        <motion.div
-          className="content-card"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}
-        >
-          <h2 style={{ margin: '0 0 1rem', fontSize: '1rem' }}>Notices & Messages</h2>
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+          <h2 className="dashboard-section-title">Notices & Messages</h2>
           {stats?.notices?.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: stats?.unreadMessages > 0 ? '1rem' : 0 }}>
+            <div style={{ marginBottom: stats?.unreadMessages > 0 ? '1rem' : 0 }}>
               {stats.notices.map((n) => (
-                <div key={n._id} style={{ padding: '0.75rem', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                  <strong style={{ fontSize: '0.9rem' }}>{n.title}</strong>
-                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{n.body?.slice(0, 120)}{n.body?.length > 120 ? '…' : ''}</p>
+                <div key={n._id} className="dashboard-notice-item">
+                  <strong>{n.title}</strong>
+                  <p>{n.body?.slice(0, 120)}{n.body?.length > 120 ? '…' : ''}</p>
                 </div>
               ))}
             </div>
           )}
           {stats?.unreadMessages > 0 && (
-            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent)' }}>
-              You have {stats.unreadMessages} unread inner message(s). <Link to="/dashboard/notices" style={{ color: 'var(--accent)' }}>View →</Link>
+            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent)', fontWeight: 500 }}>
+              You have {stats.unreadMessages} unread message(s). <Link to="/dashboard/notices" style={{ color: 'var(--accent)' }}>View →</Link>
             </p>
           )}
         </motion.div>
       )}
-    </>
+
+      {/* Reports — last (Category Admin only) */}
+      {!loading && user?.role === 'CATEGORY_ADMIN' && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <h2 className="dashboard-section-title">Reports</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+            <div className="dashboard-section-grid">
+              <h3 className="dashboard-kvp-label" style={{ marginBottom: '0.5rem' }}>Research by type</h3>
+              <div className="dashboard-notice-item" style={{ borderLeftColor: 'var(--border)' }}>
+                <strong>Website</strong> — Approved: {(researchByTypeMap.WEBSITE || {}).APPROVED ?? 0} · Pending: {(researchByTypeMap.WEBSITE || {}).PENDING ?? 0} · Disapproved: {(researchByTypeMap.WEBSITE || {}).DISAPPROVED ?? 0}
+              </div>
+              <div className="dashboard-notice-item" style={{ borderLeftColor: 'var(--border)' }}>
+                <strong>LinkedIn</strong> — Approved: {(researchByTypeMap.LINKEDIN || {}).APPROVED ?? 0} · Pending: {(researchByTypeMap.LINKEDIN || {}).PENDING ?? 0} · Disapproved: {(researchByTypeMap.LINKEDIN || {}).DISAPPROVED ?? 0}
+              </div>
+            </div>
+            <div className="dashboard-section-grid">
+              <h3 className="dashboard-kvp-label" style={{ marginBottom: '0.5rem' }}>Inquiry by type</h3>
+              <div className="dashboard-notice-item" style={{ borderLeftColor: 'var(--border)' }}>
+                <strong>Website</strong> — Approved: {(inquiryByTypeMap.WEBSITE || {}).APPROVED ?? 0} · Pending: {(inquiryByTypeMap.WEBSITE || {}).PENDING ?? 0} · Disapproved: {(inquiryByTypeMap.WEBSITE || {}).DISAPPROVED ?? 0}
+              </div>
+              <div className="dashboard-notice-item" style={{ borderLeftColor: 'var(--border)' }}>
+                <strong>LinkedIn</strong> — Approved: {(inquiryByTypeMap.LINKEDIN || {}).APPROVED ?? 0} · Pending: {(inquiryByTypeMap.LINKEDIN || {}).PENDING ?? 0} · Disapproved: {(inquiryByTypeMap.LINKEDIN || {}).DISAPPROVED ?? 0}
+              </div>
+            </div>
+            {stats?.usersByRole?.length > 0 && (
+              <div>
+                <h3 className="dashboard-kvp-label" style={{ marginBottom: '0.5rem' }}>Users by role</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {stats.usersByRole.map(({ role, count }) => (
+                    <span key={role} className="dashboard-pill">{ROLE_LABELS[role] || role}: {count}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {stats?.categoriesWithCooldown?.length > 0 && (
+              <div className="dashboard-section-grid">
+                <h3 className="dashboard-kvp-label" style={{ marginBottom: '0.5rem' }}>Cooldown period</h3>
+                {stats.categoriesWithCooldown.map((c) => (
+                  <div key={c._id} className="dashboard-country-chip">
+                    <span>{c.name}</span>
+                    <span>{c.cooldownDays ?? 30} days</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
   );
 }
