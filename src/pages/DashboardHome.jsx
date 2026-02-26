@@ -155,7 +155,77 @@ export default function DashboardHome() {
         </motion.div>
       )}
 
-      {/* Super Admin: Payment Overview */}
+      {/* Key metrics grid */}
+      <AnimatePresence>
+        {!loading && stats && (
+          <motion.div
+            className="dashboard-metrics"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            {user?.role === 'SUPER_ADMIN' && (
+              <>
+                <MetricCard title="Categories" value={stats.categoryCount ?? 0} delay={0.05} icon="📁" />
+                <MetricCard title="Total users" value={stats.users ?? 0} delay={0.08} icon="👥" />
+                <MetricCard title="Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
+                <MetricCard title="Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
+                <MetricCard title="Payments" value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`} sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`} delay={0.2} icon="💰" />
+              </>
+            )}
+            {user?.role === 'CATEGORY_ADMIN' && (
+              <>
+                <MetricCard title="Category users" value={stats.users ?? 0} delay={0.05} icon="👥" />
+                <MetricCard title="Category Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
+                <MetricCard title="Category Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
+                <MetricCard title="Category Payments" value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`} sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`} delay={0.2} icon="💰" />
+              </>
+            )}
+            {['WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER'].includes(user?.role) && (
+              <>
+                <MetricCard title="My Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="🔍" />
+                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
+              </>
+            )}
+            {['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(user?.role) && (
+              <>
+                <MetricCard title="Assigned to you" value={stats?.distributedCount ?? 0} sub="Research assigned, not yet inquired" delay={0.05} icon="📋" />
+                <MetricCard title="My Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.08} icon="✉️" />
+                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
+              </>
+            )}
+            {['WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR'].includes(user?.role) && (
+              <>
+                <MetricCard title="Pending Research to Audit" value={researchByStatus.PENDING ?? 0} sub={`Approved: ${researchByStatus.APPROVED ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="🔍" />
+                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
+              </>
+            )}
+            {['WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR'].includes(user?.role) && (
+              <>
+                <MetricCard title="Pending Inquiries to Audit" value={inquiryByStatus.PENDING ?? 0} sub={`Approved: ${inquiryByStatus.APPROVED ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="✉️" />
+                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Super Admin: Users by role (below metric cards) */}
+      {!loading && user?.role === 'SUPER_ADMIN' && (stats?.usersByRole?.length > 0) && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
+          <h2 className="dashboard-section-title">Users by role</h2>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+            {stats.usersByRole.map(({ role, count }) => (
+              <span key={role} className="dashboard-pill">
+                {ROLE_LABELS[role] || role}: <strong>{count}</strong>
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Super Admin: Payment Overview (below key metrics) */}
       {!loading && stats?.superAdminPayment && (
         <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
           <h2 className="dashboard-section-title">Payment Overview</h2>
@@ -227,76 +297,6 @@ export default function DashboardHome() {
           </div>
         </motion.div>
       )}
-
-      {/* Super Admin: Users by role */}
-      {!loading && user?.role === 'SUPER_ADMIN' && (stats?.usersByRole?.length > 0) && (
-        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.02 }}>
-          <h2 className="dashboard-section-title">Users by role</h2>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-            {stats.usersByRole.map(({ role, count }) => (
-              <span key={role} className="dashboard-pill">
-                {ROLE_LABELS[role] || role}: <strong>{count}</strong>
-              </span>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* Key metrics grid */}
-      <AnimatePresence>
-        {!loading && stats && (
-          <motion.div
-            className="dashboard-metrics"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {user?.role === 'SUPER_ADMIN' && (
-              <>
-                <MetricCard title="Categories" value={stats.categoryCount ?? 0} delay={0.05} icon="📁" />
-                <MetricCard title="Total users" value={stats.users ?? 0} delay={0.08} icon="👥" />
-                <MetricCard title="Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
-                <MetricCard title="Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
-                <MetricCard title="Payments" value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`} sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`} delay={0.2} icon="💰" />
-              </>
-            )}
-            {user?.role === 'CATEGORY_ADMIN' && (
-              <>
-                <MetricCard title="Category users" value={stats.users ?? 0} delay={0.05} icon="👥" />
-                <MetricCard title="Category Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
-                <MetricCard title="Category Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
-                <MetricCard title="Category Payments" value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`} sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`} delay={0.2} icon="💰" />
-              </>
-            )}
-            {['WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER'].includes(user?.role) && (
-              <>
-                <MetricCard title="My Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="🔍" />
-                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
-              </>
-            )}
-            {['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(user?.role) && (
-              <>
-                <MetricCard title="Assigned to you" value={stats?.distributedCount ?? 0} sub="Research assigned, not yet inquired" delay={0.05} icon="📋" />
-                <MetricCard title="My Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.08} icon="✉️" />
-                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
-              </>
-            )}
-            {['WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR'].includes(user?.role) && (
-              <>
-                <MetricCard title="Pending Research to Audit" value={researchByStatus.PENDING ?? 0} sub={`Approved: ${researchByStatus.APPROVED ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="🔍" />
-                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
-              </>
-            )}
-            {['WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR'].includes(user?.role) && (
-              <>
-                <MetricCard title="Pending Inquiries to Audit" value={inquiryByStatus.PENDING ?? 0} sub={`Approved: ${inquiryByStatus.APPROVED ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="✉️" />
-                <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Data visualization — for roles with full stats */}
       {!loading && stats && (user?.role === 'SUPER_ADMIN' || user?.role === 'CATEGORY_ADMIN') && (

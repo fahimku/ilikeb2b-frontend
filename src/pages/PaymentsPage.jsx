@@ -21,7 +21,7 @@ export default function PaymentsPage() {
   const [error, setError] = useState('');
   const [generating, setGenerating] = useState(false);
   const [payingId, setPayingId] = useState(null);
-  const [payAmount, setPayAmount] = useState('');
+  const [payAmount, setPayAmount] = useState(''); // kept for compatibility but not editable by Super Admin
   const [payChannel, setPayChannel] = useState('');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -72,7 +72,13 @@ export default function PaymentsPage() {
   };
 
   const handleMarkPaid = (id) => {
-    const amount = parseFloat(payAmount);
+    if (!payChannel) {
+      setError('Select payment channel before marking as paid.');
+      return;
+    }
+    const payment = list.find((p) => p._id === id);
+    if (!payment) return;
+    const amount = payment.totalAmount ?? 0;
     if (Number.isNaN(amount) || amount < 0) return;
     setPayingId(id);
     const body = { paidAmount: amount };
@@ -308,17 +314,14 @@ export default function PaymentsPage() {
                             <input
                               type="number"
                               className="text-input"
-                              placeholder="Amount"
-                              value={payingId === p._id ? payAmount : ''}
-                              onChange={(e) => setPayAmount(e.target.value)}
-                              onFocus={() => { setPayingId(p._id); setPayAmount(p.totalAmount?.toString() ?? ''); }}
-                              style={{ width: '80px' }}
+                              value={(p.totalAmount ?? 0).toFixed(2)}
+                              readOnly
+                              style={{ width: '80px', opacity: 0.9, cursor: 'not-allowed' }}
                             />
                             <select
                               className="select-input"
                               value={payingId === p._id ? payChannel : ''}
-                              onChange={(e) => setPayChannel(e.target.value)}
-                              onFocus={() => setPayingId(p._id)}
+                              onChange={(e) => { setPayingId(p._id); setPayChannel(e.target.value); }}
                               style={{ width: '120px' }}
                             >
                               {PAYMENT_CHANNELS.map((c) => (
@@ -328,7 +331,7 @@ export default function PaymentsPage() {
                             <button
                               type="button"
                               className="btn btn-sm btn-primary"
-                              disabled={!payAmount}
+                              disabled={payingId !== p._id || !payChannel}
                               onClick={() => handleMarkPaid(p._id)}
                             >
                               {payingId === p._id && payingId ? 'Pay' : 'Mark paid'}
