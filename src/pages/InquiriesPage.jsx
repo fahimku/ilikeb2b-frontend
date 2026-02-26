@@ -75,6 +75,9 @@ export default function InquiriesPage() {
   const [editInquiryLoading, setEditInquiryLoading] = useState(false);
   const [appealRejectItem, setAppealRejectItem] = useState(null);
   const [appealRejectReason, setAppealRejectReason] = useState('');
+  const [reportItem, setReportItem] = useState(null);
+  const [reportReason, setReportReason] = useState('');
+  const [reportSubmitLoading, setReportSubmitLoading] = useState(false);
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isCategoryAdmin = user?.role === 'CATEGORY_ADMIN';
@@ -505,11 +508,32 @@ export default function InquiriesPage() {
                           <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Submitting…</span>
                         ) : (
                           <span style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', alignItems: 'center' }}>
-                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => {
-                              setUploadScreenshotForResearch({ researchId: r._id, type: r.type === 'WEBSITE' || r.companyName ? 'WEBSITE' : 'LINKEDIN' });
-                              setUploadScreenshotFiles([]);
-                            }}>Upload screenshot</button>
-                            <button type="button" className="btn btn-sm btn-primary" onClick={() => handleSubmitInquiryForRow(r)} disabled={!pendingScreenshotsByResearch[r._id]?.length && !trustedInquirer} title={!pendingScreenshotsByResearch[r._id]?.length && !trustedInquirer ? 'Upload screenshot first or be marked as Trusted Inquirer' : ''}>Submit inquiry</button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => {
+                                setUploadScreenshotForResearch({ researchId: r._id, type: r.type === 'WEBSITE' || r.companyName ? 'WEBSITE' : 'LINKEDIN' });
+                                setUploadScreenshotFiles([]);
+                              }}
+                            >
+                              Upload screenshot
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary"
+                              onClick={() => handleSubmitInquiryForRow(r)}
+                              disabled={!pendingScreenshotsByResearch[r._id]?.length && !trustedInquirer}
+                              title={!pendingScreenshotsByResearch[r._id]?.length && !trustedInquirer ? 'Upload screenshot first or be marked as Trusted Inquirer' : ''}
+                            >
+                              Submit inquiry
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => { setReportItem(r); setReportReason(''); }}
+                            >
+                              Report
+                            </button>
                             {pendingScreenshotsByResearch[r._id]?.length > 0 && (
                               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{pendingScreenshotsByResearch[r._id].length} image(s) ready</span>
                             )}
@@ -679,6 +703,60 @@ export default function InquiriesPage() {
               <button type="button" className="btn btn-primary" onClick={handleUploadScreenshotDone} disabled={uploadScreenshotFiles.length === 0}>Done</button>
             </div>
           </div>
+        )}
+      </Dialog>
+
+      {/* Inquirer Report Dialog (Assigned to me) */}
+      <Dialog
+        open={!!reportItem}
+        onClose={() => { if (!reportSubmitLoading) { setReportItem(null); setReportReason(''); } }}
+        title="Report problem"
+        subtitle="Report this target (no online form, inaccessible website, invalid link)."
+      >
+        {reportItem && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setReportSubmitLoading(true);
+              try {
+                await api.post(`/api/research/${reportItem._id}/report`, {
+                  reason: reportReason.trim() || 'Reported by inquirer',
+                });
+                setReportItem(null);
+                setReportReason('');
+                fetchAssignedResearch();
+              } catch (err) {
+                setError(err.response?.data?.message || 'Report failed');
+              } finally {
+                setReportSubmitLoading(false);
+              }
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
+            <div>
+              <label className="form-label">Reason (optional)</label>
+              <textarea
+                className="text-input"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value)}
+                rows={2}
+                placeholder="e.g. No online form, website inaccessible"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => { if (!reportSubmitLoading) { setReportItem(null); setReportReason(''); } }}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={reportSubmitLoading}>
+                {reportSubmitLoading ? 'Submitting…' : 'Submit report'}
+              </button>
+            </div>
+          </form>
         )}
       </Dialog>
 

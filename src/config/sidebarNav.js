@@ -33,23 +33,29 @@ export const SIDEBAR_NAV = [
     label: 'Research',
     icon: 'search',
     roles: [
-      'CATEGORY_ADMIN',
+      'SUPER_ADMIN', 'CATEGORY_ADMIN',
       'WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER',
       'WEBSITE_RESEARCH_AUDITOR', 'LINKEDIN_RESEARCH_AUDITOR',
     ],
   },
   {
+    path: '/dashboard/research-appeals',
+    label: 'Appeals',
+    icon: 'alert',
+    roles: ['SUPER_ADMIN', 'CATEGORY_ADMIN'],
+  },
+  {
     path: '/dashboard/assign-research',
     label: 'Assign research',
     icon: 'link',
-    roles: ['CATEGORY_ADMIN'],
+    roles: ['SUPER_ADMIN', 'CATEGORY_ADMIN'],
   },
   {
     path: '/dashboard/inquiries',
     label: 'Inquiries',
     icon: 'mail',
     roles: [
-      'CATEGORY_ADMIN',
+      'SUPER_ADMIN', 'CATEGORY_ADMIN',
       'WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER',
       'WEBSITE_INQUIRY_AUDITOR', 'LINKEDIN_INQUIRY_AUDITOR',
     ],
