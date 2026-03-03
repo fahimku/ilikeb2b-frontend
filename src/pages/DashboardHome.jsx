@@ -38,6 +38,7 @@ export default function DashboardHome() {
   const [researchByCountry, setResearchByCountry] = useState([]);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isResearcher = ['WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER'].includes(user?.role);
+  const isCategoryAdmin = user?.role === 'CATEGORY_ADMIN';
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -99,6 +100,17 @@ export default function DashboardHome() {
     return acc;
   }, {});
 
+  // Users by role → quick lookup & grouped totals (for Super Admin / Category Admin tiles)
+  const usersByRole = stats?.usersByRole || [];
+  const usersCountByRole = usersByRole.reduce((acc, { role, count }) => {
+    acc[role] = count;
+    return acc;
+  }, {});
+  const totalResearchersUsers = (usersCountByRole.WEBSITE_RESEARCHER || 0) + (usersCountByRole.LINKEDIN_RESEARCHER || 0);
+  const totalInquirersUsers = (usersCountByRole.WEBSITE_INQUIRER || 0) + (usersCountByRole.LINKEDIN_INQUIRER || 0);
+  const totalResearchAuditorsUsers = (usersCountByRole.WEBSITE_RESEARCH_AUDITOR || 0) + (usersCountByRole.LINKEDIN_RESEARCH_AUDITOR || 0);
+  const totalInquiryAuditorsUsers = (usersCountByRole.WEBSITE_INQUIRY_AUDITOR || 0) + (usersCountByRole.LINKEDIN_INQUIRY_AUDITOR || 0);
+
   // researchByType: { type, status, count }[]
   const researchByTypeMap = (stats?.researchByType || []).reduce((acc, r) => {
     if (!acc[r.type]) acc[r.type] = {};
@@ -115,6 +127,47 @@ export default function DashboardHome() {
   const linkedinResearch = researchByTypeMap.LINKEDIN || {};
   const websiteInquiry = inquiryByTypeMap.WEBSITE || {};
   const linkedinInquiry = inquiryByTypeMap.LINKEDIN || {};
+
+  // Country data by type (for admin dashboards)
+  const researchByCountryByType = Array.isArray(stats?.researchByCountryByType)
+    ? stats.researchByCountryByType
+    : [];
+  const websiteCountryStats = researchByCountryByType.filter((r) => r.type === 'WEBSITE');
+  const linkedinCountryStats = researchByCountryByType.filter((r) => r.type === 'LINKEDIN');
+
+  // Reports & blacklist summary (for admins)
+  const reportsSummary = stats?.reportsSummary;
+
+  // Category Admin scholarship (top performers in category)
+  const categoryAdminTopWorkers = stats?.categoryAdminTopWorkers;
+
+  // Admin: latest reported research & blacklist entries for richer widgets
+  const [latestReportedResearch, setLatestReportedResearch] = useState([]);
+  const [latestBlacklistItems, setLatestBlacklistItems] = useState([]);
+
+  useEffect(() => {
+    if (!isSuperAdmin && !isCategoryAdmin) return;
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const [reportedRes, blacklistRes] = await Promise.all([
+          api.get('/api/research', {
+            params: { list: 'reported', limit: 5 },
+            signal: controller.signal,
+          }).catch(() => ({ data: { data: [] } })),
+          api.get('/api/blacklist', {
+            signal: controller.signal,
+          }).catch(() => ({ data: [] })),
+        ]);
+        setLatestReportedResearch((reportedRes.data?.data || []).slice(0, 5));
+        setLatestBlacklistItems((Array.isArray(blacklistRes.data) ? blacklistRes.data : []).slice(0, 5));
+      } catch {
+        // ignore, dashboard will just not show extra lists
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [isSuperAdmin, isCategoryAdmin]);
 
   // Totals & approval rates for dashboards
   const totalResearchCount = Object.values(researchByStatus).reduce((sum, v) => sum + (v || 0), 0);
@@ -182,17 +235,45 @@ export default function DashboardHome() {
                 <MetricCard title="Categories" value={stats.categoryCount ?? 0} delay={0.05} icon="📁" />
                 <MetricCard title="Total users" value={stats.users ?? 0} delay={0.08} icon="👥" />
                 <MetricCard
+                  title="Researchers (all)"
+                  value={totalResearchersUsers}
+                  sub={`Website: ${usersCountByRole.WEBSITE_RESEARCHER ?? 0} · LinkedIn: ${usersCountByRole.LINKEDIN_RESEARCHER ?? 0}`}
+                  delay={0.09}
+                  icon="🧪"
+                />
+                <MetricCard
+                  title="Inquirers (all)"
+                  value={totalInquirersUsers}
+                  sub={`Website: ${usersCountByRole.WEBSITE_INQUIRER ?? 0} · LinkedIn: ${usersCountByRole.LINKEDIN_INQUIRER ?? 0}`}
+                  delay={0.095}
+                  icon="📨"
+                />
+                <MetricCard
+                  title="Research auditors"
+                  value={totalResearchAuditorsUsers}
+                  sub={`Website: ${usersCountByRole.WEBSITE_RESEARCH_AUDITOR ?? 0} · LinkedIn: ${usersCountByRole.LINKEDIN_RESEARCH_AUDITOR ?? 0}`}
+                  delay={0.1}
+                  icon="🔍"
+                />
+                <MetricCard
+                  title="Inquiry auditors"
+                  value={totalInquiryAuditorsUsers}
+                  sub={`Website: ${usersCountByRole.WEBSITE_INQUIRY_AUDITOR ?? 0} · LinkedIn: ${usersCountByRole.LINKEDIN_INQUIRY_AUDITOR ?? 0}`}
+                  delay={0.105}
+                  icon="✅"
+                />
+                <MetricCard
                   title="Research"
                   value={researchByStatus.APPROVED ?? 0}
                   sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.1}
+                  delay={0.11}
                   icon="🔍"
                 />
                 <MetricCard
                   title="Inquiries"
                   value={inquiryByStatus.APPROVED ?? 0}
                   sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
-                  delay={0.15}
+                  delay={0.12}
                   icon="✉️"
                 />
                 <MetricCard
@@ -246,11 +327,39 @@ export default function DashboardHome() {
                 />
               </>
             )}
-            {user?.role === 'CATEGORY_ADMIN' && (
+            {isCategoryAdmin && (
               <>
                 <MetricCard title="Category users" value={stats.users ?? 0} delay={0.05} icon="👥" />
-                <MetricCard title="Category Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
-                <MetricCard title="Category Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
+                <MetricCard
+                  title="Researchers (category)"
+                  value={totalResearchersUsers}
+                  sub={`Website: ${usersCountByRole.WEBSITE_RESEARCHER ?? 0} · LinkedIn: ${usersCountByRole.LINKEDIN_RESEARCHER ?? 0}`}
+                  delay={0.075}
+                  icon="🧪"
+                />
+                <MetricCard
+                  title="Inquirers (category)"
+                  value={totalInquirersUsers}
+                  sub={`Website: ${usersCountByRole.WEBSITE_INQUIRER ?? 0} · LinkedIn: ${usersCountByRole.LINKEDIN_INQUIRER ?? 0}`}
+                  delay={0.085}
+                  icon="📨"
+                />
+                <MetricCard
+                  title="Research auditors"
+                  value={totalResearchAuditorsUsers}
+                  sub={`Website: ${usersCountByRole.WEBSITE_RESEARCH_AUDITOR ?? 0} · LinkedIn: ${usersCountByRole.LINKEDIN_RESEARCH_AUDITOR ?? 0}`}
+                  delay={0.095}
+                  icon="🔍"
+                />
+                <MetricCard
+                  title="Inquiry auditors"
+                  value={totalInquiryAuditorsUsers}
+                  sub={`Website: ${usersCountByRole.WEBSITE_INQUIRY_AUDITOR ?? 0} · LinkedIn: ${usersCountByRole.LINKEDIN_INQUIRY_AUDITOR ?? 0}`}
+                  delay={0.1}
+                  icon="✅"
+                />
+                <MetricCard title="Category Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.11} icon="🔍" />
+                <MetricCard title="Category Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.12} icon="✉️" />
                 <MetricCard
                   title="Website research"
                   value={websiteResearch.APPROVED ?? 0}
@@ -520,6 +629,50 @@ export default function DashboardHome() {
         </motion.div>
       )}
 
+      {/* Super Admin / Category Admin: Country Data (approved research by country & type) */}
+      {!loading && (isSuperAdmin || user?.role === 'CATEGORY_ADMIN') && researchByCountryByType.length > 0 && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }}>
+          <h2 className="dashboard-section-title">
+            Country data — approved research
+            {isSuperAdmin ? '' : ' (this category)'}
+          </h2>
+          <div className="dashboard-section-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: '0.5rem' }}>
+            <div>
+              <h3 className="dashboard-kvp-label" style={{ marginBottom: '0.75rem' }}>Website research</h3>
+              {websiteCountryStats.length === 0 && (
+                <p className="dashboard-empty-hint">No approved website research yet.</p>
+              )}
+              {websiteCountryStats.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem' }}>
+                  {websiteCountryStats.slice(0, 16).map(({ country, count }) => (
+                    <div key={`web-${country}`} className="dashboard-country-chip">
+                      <span>{country}</span>
+                      <span>{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="dashboard-kvp-label" style={{ marginBottom: '0.75rem' }}>LinkedIn research</h3>
+              {linkedinCountryStats.length === 0 && (
+                <p className="dashboard-empty-hint">No approved LinkedIn research yet.</p>
+              )}
+              {linkedinCountryStats.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.5rem' }}>
+                  {linkedinCountryStats.slice(0, 16).map(({ country, count }) => (
+                    <div key={`li-${country}`} className="dashboard-country-chip">
+                      <span>{country}</span>
+                      <span>{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Researcher: Scholarship */}
       {!loading && isResearcher && (stats?.topWorkersByType?.topResearchers?.length > 0) && (
         <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
@@ -588,8 +741,133 @@ export default function DashboardHome() {
         </motion.div>
       )}
 
-      {/* Reports — last (Category Admin only) */}
-      {!loading && user?.role === 'CATEGORY_ADMIN' && (
+      {/* Super Admin / Category Admin: Reports & blacklist overview */}
+      {!loading && (isSuperAdmin || user?.role === 'CATEGORY_ADMIN') && reportsSummary && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+          <h2 className="dashboard-section-title">Reports & blacklist overview</h2>
+          <div className="dashboard-section-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', marginTop: '0.5rem' }}>
+            <div className="dashboard-kvp" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.35rem' }}>
+              <span className="dashboard-kvp-label">Pending research reports</span>
+              <span className="dashboard-kvp-value" style={{ fontSize: '1.25rem' }}>
+                {reportsSummary.reportedResearch?.totalPending ?? 0}
+              </span>
+              <span className="dashboard-metric-sub">
+                Website: {reportsSummary.reportedResearch?.websitePending ?? 0} · LinkedIn: {reportsSummary.reportedResearch?.linkedinPending ?? 0}
+              </span>
+            </div>
+            <div className="dashboard-kvp" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.35rem' }}>
+              <span className="dashboard-kvp-label">Blacklisted targets</span>
+              <span className="dashboard-kvp-value" style={{ fontSize: '1.25rem' }}>
+                {reportsSummary.blacklist?.total ?? 0}
+              </span>
+              <span className="dashboard-metric-sub">
+                Websites: {reportsSummary.blacklist?.website ?? 0} · LinkedIn: {reportsSummary.blacklist?.linkedin ?? 0}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Super Admin / Category Admin: Latest reported research & blacklist entries */}
+      {!loading && (isSuperAdmin || isCategoryAdmin) && (latestReportedResearch.length > 0 || latestBlacklistItems.length > 0) && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.09 }}>
+          <h2 className="dashboard-section-title">Reports & blacklist — details</h2>
+          <div className="dashboard-section-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', marginTop: '0.5rem' }}>
+            <div>
+              <h3 className="dashboard-kvp-label" style={{ marginBottom: '0.5rem' }}>Latest reported research</h3>
+              {latestReportedResearch.length === 0 && <p className="dashboard-empty-hint">No reported items.</p>}
+              {latestReportedResearch.slice(0, 5).map((r) => (
+                <div key={r._id} className="dashboard-notice-item" style={{ borderLeftColor: 'var(--accent-soft)' }}>
+                  <strong>{r.referenceNo || '—'} — {r.type === 'WEBSITE' ? 'Website' : 'LinkedIn'}</strong>
+                  <p style={{ marginBottom: '0.25rem' }}>{r.companyName || r.personName || '—'}</p>
+                  {r.reportReason && (
+                    <p className="dashboard-metric-sub" style={{ marginBottom: 0 }}>
+                      Reason: {r.reportReason.slice(0, 80)}{r.reportReason.length > 80 ? '…' : ''}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div>
+              <h3 className="dashboard-kvp-label" style={{ marginBottom: '0.5rem' }}>Latest blacklist entries</h3>
+              {latestBlacklistItems.length === 0 && <p className="dashboard-empty-hint">No blacklist entries.</p>}
+              {latestBlacklistItems.slice(0, 5).map((b) => (
+                <div key={b._id} className="dashboard-notice-item">
+                  <strong>{b.type === 'WEBSITE' ? 'Website' : 'LinkedIn'}</strong>
+                  <p style={{ marginBottom: '0.25rem', wordBreak: 'break-all' }}>{b.targetLink}</p>
+                  <p className="dashboard-metric-sub" style={{ marginBottom: 0 }}>
+                    {b.category?.name || '—'} · {b.reason || 'No reason specified'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Category Admin: Scholarship for this category */}
+      {!loading && user?.role === 'CATEGORY_ADMIN' && categoryAdminTopWorkers && (
+        <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <h2 className="dashboard-section-title">Scholarship — Top performers in this category</h2>
+          <div className="dashboard-section-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+            <div>
+              <span className="dashboard-kvp-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Top 3 Website Researchers</span>
+              {(categoryAdminTopWorkers.websiteResearchers || []).length > 0 ? (
+                (categoryAdminTopWorkers.websiteResearchers || []).map((w, i) => (
+                  <div key={`web-res-${i}`} className="dashboard-leader-item">
+                    <span>{w.name}</span>
+                    <span className="dashboard-kvp-value">${(w.total || 0).toFixed(2)} ({w.count})</span>
+                  </div>
+                ))
+              ) : (
+                <p className="dashboard-empty-hint">—</p>
+              )}
+            </div>
+            <div>
+              <span className="dashboard-kvp-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Top 3 LinkedIn Researchers</span>
+              {(categoryAdminTopWorkers.linkedinResearchers || []).length > 0 ? (
+                (categoryAdminTopWorkers.linkedinResearchers || []).map((w, i) => (
+                  <div key={`li-res-${i}`} className="dashboard-leader-item">
+                    <span>{w.name}</span>
+                    <span className="dashboard-kvp-value">${(w.total || 0).toFixed(2)} ({w.count})</span>
+                  </div>
+                ))
+              ) : (
+                <p className="dashboard-empty-hint">—</p>
+              )}
+            </div>
+            <div>
+              <span className="dashboard-kvp-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Top 3 Website Inquirers</span>
+              {(categoryAdminTopWorkers.websiteInquirers || []).length > 0 ? (
+                (categoryAdminTopWorkers.websiteInquirers || []).map((w, i) => (
+                  <div key={`web-inq-${i}`} className="dashboard-leader-item">
+                    <span>{w.name}</span>
+                    <span className="dashboard-kvp-value">${(w.total || 0).toFixed(2)} ({w.count})</span>
+                  </div>
+                ))
+              ) : (
+                <p className="dashboard-empty-hint">—</p>
+              )}
+            </div>
+            <div>
+              <span className="dashboard-kvp-label" style={{ display: 'block', marginBottom: '0.5rem' }}>Top 3 LinkedIn Inquirers</span>
+              {(categoryAdminTopWorkers.linkedinInquirers || []).length > 0 ? (
+                (categoryAdminTopWorkers.linkedinInquirers || []).map((w, i) => (
+                  <div key={`li-inq-${i}`} className="dashboard-leader-item">
+                    <span>{w.name}</span>
+                    <span className="dashboard-kvp-value">${(w.total || 0).toFixed(2)} ({w.count})</span>
+                  </div>
+                ))
+              ) : (
+                <p className="dashboard-empty-hint">—</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Reports — last (Category Admin only, category-level breakdown) */}
+      {!loading && isCategoryAdmin && (
         <motion.div className="dashboard-section" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <h2 className="dashboard-section-title">Reports</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
