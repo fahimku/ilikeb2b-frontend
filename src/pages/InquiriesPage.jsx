@@ -103,6 +103,9 @@ export default function InquiriesPage() {
   // Which row is in "Upload screenshot" dialog: { researchId, type }
   const [uploadScreenshotForResearch, setUploadScreenshotForResearch] = useState(null);
   const [uploadScreenshotFiles, setUploadScreenshotFiles] = useState([]);
+  // Templates from Category Admin for inquirer guidance
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
 
   const fetchAssignedResearch = useCallback((signal) => {
     setAssignedLoading(true);
@@ -217,6 +220,16 @@ export default function InquiriesPage() {
     setUploadScreenshotForResearch(null);
     setUploadScreenshotFiles([]);
   };
+
+  // Load templates for inquirers (Website / LinkedIn) based on their role
+  useEffect(() => {
+    if (!canCreate) return;
+    const type = isWebsiteInquirer ? 'WEBSITE' : isLinkedInInquirer ? 'LINKEDIN' : '';
+    if (!type) return;
+    api.get('/api/templates', { params: { type } })
+      .then(({ data }) => setTemplates(Array.isArray(data) ? data.filter((t) => t.isActive !== false) : []))
+      .catch(() => setTemplates([]));
+  }, [canCreate, isWebsiteInquirer, isLinkedInInquirer]);
 
   const handleSubmitInquiryForRow = async (r) => {
     const researchId = r._id;
@@ -785,6 +798,36 @@ export default function InquiriesPage() {
             <label className="form-label">Type</label>
             <input className="text-input" value={createData.type === 'WEBSITE' ? 'Website' : 'LinkedIn'} readOnly style={{  opacity: 0.9 }} />
           </div>
+          {templates.length > 0 && (
+            <div>
+              <label className="form-label">Inquiry Template (optional)</label>
+              <select
+                className="select-input"
+                value={selectedTemplateId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedTemplateId(val);
+                  const tpl = templates.find((t) => t._id === val);
+                  if (tpl && tpl.content) {
+                    // Show template content in a modal alert so inquirer can copy-paste as needed
+                    // (keeps implementation minimal without changing backend payload)
+                    // eslint-disable-next-line no-alert
+                    window.alert(tpl.content);
+                  }
+                }}
+              >
+                <option value="">— Select template —</option>
+                {templates.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.title || 'Untitled'}
+                  </option>
+                ))}
+              </select>
+              <p className="page-subtitle" style={{ fontSize: '0.8rem', marginTop: '0.3rem' }}>
+                Selecting a template will show its content so you can follow or reuse it while doing the inquiry.
+              </p>
+            </div>
+          )}
           {createData.researchId && (() => {
             const sel = approvedResearch.find((x) => x._id === createData.researchId);
             const link = sel?.companyLink || sel?.linkedinLink;

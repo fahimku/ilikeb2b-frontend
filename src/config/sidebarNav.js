@@ -61,6 +61,18 @@ export const SIDEBAR_NAV = [
     ],
   },
   {
+    path: '/dashboard/templates',
+    label: 'Templates',
+    icon: 'file',
+    roles: ['SUPER_ADMIN', 'CATEGORY_ADMIN'],
+  },
+  {
+    path: '/dashboard/blacklist',
+    label: 'Blacklist',
+    icon: 'ban',
+    roles: ['SUPER_ADMIN', 'CATEGORY_ADMIN'],
+  },
+  {
     path: '/dashboard/payments',
     label: 'Payments',
     icon: 'dollar',

@@ -14,6 +14,8 @@ import PaymentsPage from './pages/PaymentsPage';
 import NoticesPage from './pages/NoticesPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
+import TemplatesPage from './pages/TemplatesPage';
+import BlacklistPage from './pages/BlacklistPage';
 import './App.css';
 
 export default function App() {
@@ -39,6 +41,8 @@ export default function App() {
             <Route path="inquiries" element={<InquiriesPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="notices" element={<NoticesPage />} />
+            <Route path="templates" element={<TemplatesPage />} />
+            <Route path="blacklist" element={<BlacklistPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

@@ -111,6 +111,18 @@ export default function DashboardHome() {
     acc[r.type][r.status] = r.count;
     return acc;
   }, {});
+  const websiteResearch = researchByTypeMap.WEBSITE || {};
+  const linkedinResearch = researchByTypeMap.LINKEDIN || {};
+  const websiteInquiry = inquiryByTypeMap.WEBSITE || {};
+  const linkedinInquiry = inquiryByTypeMap.LINKEDIN || {};
+
+  // Totals & approval rates for dashboards
+  const totalResearchCount = Object.values(researchByStatus).reduce((sum, v) => sum + (v || 0), 0);
+  const totalInquiryCount = Object.values(inquiryByStatus).reduce((sum, v) => sum + (v || 0), 0);
+  const researchApproved = researchByStatus.APPROVED ?? 0;
+  const inquiryApproved = inquiryByStatus.APPROVED ?? 0;
+  const researchApprovedRate = totalResearchCount ? Math.round((researchApproved * 100) / totalResearchCount) : 0;
+  const inquiryApprovedRate = totalInquiryCount ? Math.round((inquiryApproved * 100) / totalInquiryCount) : 0;
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -169,9 +181,69 @@ export default function DashboardHome() {
               <>
                 <MetricCard title="Categories" value={stats.categoryCount ?? 0} delay={0.05} icon="📁" />
                 <MetricCard title="Total users" value={stats.users ?? 0} delay={0.08} icon="👥" />
-                <MetricCard title="Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
-                <MetricCard title="Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
-                <MetricCard title="Payments" value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`} sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`} delay={0.2} icon="💰" />
+                <MetricCard
+                  title="Research"
+                  value={researchByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.1}
+                  icon="🔍"
+                />
+                <MetricCard
+                  title="Inquiries"
+                  value={inquiryByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.15}
+                  icon="✉️"
+                />
+                <MetricCard
+                  title="Website research"
+                  value={websiteResearch.APPROVED ?? 0}
+                  sub={`Pending: ${websiteResearch.PENDING ?? 0} · Rejected: ${websiteResearch.DISAPPROVED ?? 0}`}
+                  delay={0.16}
+                  icon="🌐"
+                />
+                <MetricCard
+                  title="LinkedIn research"
+                  value={linkedinResearch.APPROVED ?? 0}
+                  sub={`Pending: ${linkedinResearch.PENDING ?? 0} · Rejected: ${linkedinResearch.DISAPPROVED ?? 0}`}
+                  delay={0.17}
+                  icon="🔗"
+                />
+                <MetricCard
+                  title="Website inquiries"
+                  value={websiteInquiry.APPROVED ?? 0}
+                  sub={`Pending: ${websiteInquiry.PENDING ?? 0} · Rejected: ${websiteInquiry.DISAPPROVED ?? 0}`}
+                  delay={0.175}
+                  icon="📨"
+                />
+                <MetricCard
+                  title="LinkedIn inquiries"
+                  value={linkedinInquiry.APPROVED ?? 0}
+                  sub={`Pending: ${linkedinInquiry.PENDING ?? 0} · Rejected: ${linkedinInquiry.DISAPPROVED ?? 0}`}
+                  delay={0.18}
+                  icon="💼"
+                />
+                <MetricCard
+                  title="Research approval rate"
+                  value={`${researchApprovedRate}%`}
+                  sub={`Approved ${researchApproved} of ${totalResearchCount || 0}`}
+                  delay={0.19}
+                  icon="✅"
+                />
+                <MetricCard
+                  title="Inquiry approval rate"
+                  value={`${inquiryApprovedRate}%`}
+                  sub={`Approved ${inquiryApproved} of ${totalInquiryCount || 0}`}
+                  delay={0.2}
+                  icon="📈"
+                />
+                <MetricCard
+                  title="Payments"
+                  value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`}
+                  sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`}
+                  delay={0.22}
+                  icon="💰"
+                />
               </>
             )}
             {user?.role === 'CATEGORY_ADMIN' && (
@@ -179,19 +251,86 @@ export default function DashboardHome() {
                 <MetricCard title="Category users" value={stats.users ?? 0} delay={0.05} icon="👥" />
                 <MetricCard title="Category Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.1} icon="🔍" />
                 <MetricCard title="Category Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.15} icon="✉️" />
-                <MetricCard title="Category Payments" value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`} sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`} delay={0.2} icon="💰" />
+                <MetricCard
+                  title="Website research"
+                  value={websiteResearch.APPROVED ?? 0}
+                  sub={`Pending: ${websiteResearch.PENDING ?? 0} · Rejected: ${websiteResearch.DISAPPROVED ?? 0}`}
+                  delay={0.16}
+                  icon="🌐"
+                />
+                <MetricCard
+                  title="LinkedIn research"
+                  value={linkedinResearch.APPROVED ?? 0}
+                  sub={`Pending: ${linkedinResearch.PENDING ?? 0} · Rejected: ${linkedinResearch.DISAPPROVED ?? 0}`}
+                  delay={0.17}
+                  icon="🔗"
+                />
+                <MetricCard
+                  title="Website inquiries"
+                  value={websiteInquiry.APPROVED ?? 0}
+                  sub={`Pending: ${websiteInquiry.PENDING ?? 0} · Rejected: ${websiteInquiry.DISAPPROVED ?? 0}`}
+                  delay={0.18}
+                  icon="📨"
+                />
+                <MetricCard
+                  title="LinkedIn inquiries"
+                  value={linkedinInquiry.APPROVED ?? 0}
+                  sub={`Pending: ${linkedinInquiry.PENDING ?? 0} · Rejected: ${linkedinInquiry.DISAPPROVED ?? 0}`}
+                  delay={0.19}
+                  icon="💼"
+                />
+                <MetricCard
+                  title="Approval rate"
+                  value={`${researchApprovedRate || inquiryApprovedRate ? Math.round(((researchApproved + inquiryApproved) * 100) / ((totalResearchCount || 0) + (totalInquiryCount || 0) || 1)) : 0}%`}
+                  sub={`Research & inquiry approvals for this category`}
+                  delay={0.2}
+                  icon="📊"
+                />
+                <MetricCard
+                  title="Category Payments"
+                  value={`$${((paymentByStatus.PAID ?? 0) + (paymentByStatus.UNPAID ?? 0) + (paymentByStatus.PARTIAL ?? 0)).toFixed(0)}`}
+                  sub={`Paid: $${(paymentByStatus.PAID ?? 0).toFixed(0)} · Unpaid: $${(paymentByStatus.UNPAID ?? 0).toFixed(0)}`}
+                  delay={0.21}
+                  icon="💰"
+                />
               </>
             )}
             {['WEBSITE_RESEARCHER', 'LINKEDIN_RESEARCHER'].includes(user?.role) && (
               <>
-                <MetricCard title="My Research" value={researchByStatus.APPROVED ?? 0} sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`} delay={0.05} icon="🔍" />
+                <MetricCard
+                  title={user?.role === 'WEBSITE_RESEARCHER' ? 'My Website Research' : 'My LinkedIn Research'}
+                  value={researchByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${researchByStatus.PENDING ?? 0} · Rejected: ${researchByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.05}
+                  icon="🔍"
+                />
+                <MetricCard
+                  title="My approval rate"
+                  value={`${researchApprovedRate}%`}
+                  sub={`Approved ${researchApproved} of ${totalResearchCount || 0}`}
+                  delay={0.08}
+                  icon="📈"
+                />
                 <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
               </>
             )}
             {['WEBSITE_INQUIRER', 'LINKEDIN_INQUIRER'].includes(user?.role) && (
               <>
                 <MetricCard title="Assigned to you" value={stats?.distributedCount ?? 0} sub="Research assigned, not yet inquired" delay={0.05} icon="📋" />
-                <MetricCard title="My Inquiries" value={inquiryByStatus.APPROVED ?? 0} sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`} delay={0.08} icon="✉️" />
+                <MetricCard
+                  title={user?.role === 'WEBSITE_INQUIRER' ? 'My Website Inquiries' : 'My LinkedIn Inquiries'}
+                  value={inquiryByStatus.APPROVED ?? 0}
+                  sub={`Pending: ${inquiryByStatus.PENDING ?? 0} · Rejected: ${inquiryByStatus.DISAPPROVED ?? 0}`}
+                  delay={0.08}
+                  icon="✉️"
+                />
+                <MetricCard
+                  title="My approval rate"
+                  value={`${inquiryApprovedRate}%`}
+                  sub={`Approved ${inquiryApproved} of ${totalInquiryCount || 0}`}
+                  delay={0.09}
+                  icon="📈"
+                />
                 <MetricCard title="My Payments" value={`$${((stats?.userPaymentSummary?.total ?? 0)).toFixed(0)}`} sub={`Paid: $${(stats?.userPaymentSummary?.paid ?? 0).toFixed(0)} · Pending: $${(stats?.userPaymentSummary?.pending ?? 0).toFixed(0)}`} delay={0.1} icon="💰" />
               </>
             )}
